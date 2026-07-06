@@ -23,13 +23,11 @@ The tunnel token was previously visible in `docker inspect`. Rotate it:
 
 ## IPScope origin URL
 
-With `HOST=127.0.0.1`, set the tunnel public hostname origin to:
+The app binds to `127.0.0.1:3920` only. A local `socat` proxy (`ipscope-proxy` in PM2) forwards `192.168.0.234:3920` → `127.0.0.1:3920` for the Cloudflare tunnel.
 
-```
-http://127.0.0.1:3920
-```
+**Recommended:** In Cloudflare Zero Trust, change `ip.vinitk.dev` origin to `http://127.0.0.1:3920` and remove the socat proxy. Keep cloudflared on `--network host`.
 
-Use `--network host` on the cloudflared container so it can reach localhost services.
+Requires `socat` on the server: `sudo apt install socat`
 
 ## Reporting vulnerabilities
 
