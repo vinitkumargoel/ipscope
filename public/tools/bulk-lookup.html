@@ -7,8 +7,6 @@
   <meta name="description" content="Look up multiple IP addresses at once. Bulk IPv4 and IPv6 geolocation with country, city, and ISP results.">
   <link rel="canonical" href="https://ip.vinitk.dev/tools/bulk-lookup">
   <meta name="robots" content="index, follow">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/bento.css">
   <link rel="stylesheet" href="/css/pages.css">
 </head>
@@ -92,14 +90,32 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Request failed');
 
-        rows.innerHTML = data.results.map((r) => {
+        rows.replaceChildren();
+        for (const r of data.results) {
+          const row = document.createElement('div');
+          row.className = 'bulk-row';
+          const ipCell = document.createElement('span');
           if (r.error) {
-            return `<div class="bulk-row"><span>${r.ip}</span><span style="color:#b91c1c">${r.error}</span><span>—</span></div>`;
+            ipCell.textContent = r.ip;
+            const errCell = document.createElement('span');
+            errCell.style.color = '#b91c1c';
+            errCell.textContent = r.error;
+            const dash = document.createElement('span');
+            dash.textContent = '—';
+            row.append(ipCell, errCell, dash);
+          } else {
+            const link = document.createElement('a');
+            link.href = `/lookup/${encodeURIComponent(r.ip)}`;
+            link.textContent = r.ip;
+            ipCell.append(link);
+            const locCell = document.createElement('span');
+            locCell.textContent = [r.city, r.country].filter(Boolean).join(', ') || 'Unknown';
+            const ispCell = document.createElement('span');
+            ispCell.textContent = [r.isp, r.asn].filter(Boolean).join(' · ') || '—';
+            row.append(ipCell, locCell, ispCell);
           }
-          const loc = [r.city, r.country].filter(Boolean).join(', ') || 'Unknown';
-          const isp = [r.isp, r.asn].filter(Boolean).join(' · ') || '—';
-          return `<div class="bulk-row"><span><a href="/lookup/${encodeURIComponent(r.ip)}">${r.ip}</a></span><span>${loc}</span><span>${isp}</span></div>`;
-        }).join('');
+          rows.append(row);
+        }
         results.style.display = 'block';
       } catch (e) {
         showError(e.message);

@@ -11,19 +11,57 @@ import {
 import { enrichLookup } from './lib/enrich.js';
 import { initGeolite } from './lib/geolite-merge.js';
 import { SITE, LEGAL_PAGES } from './lib/site-config.js';
+import { rateLimitMiddleware } from './lib/rate-limit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT = process.env.PORT || 3920;
+const PORT = Number(process.env.PORT) || 3920;
+const HOST = process.env.HOST || '127.0.0.1';
 
 const app = express();
-app.set('trust proxy', true);
+app.disable('x-powered-by');
+app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
 app.use(express.json({ limit: '16kb' }));
 
-app.use((_req, res, next) => {
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https://*.tile.openstreetmap.org https://*.openstreetmap.org",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join('; ');
+
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const entry = {
+      ts: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      ip: req.headers['cf-connecting-ip'] || req.ip,
+      ms: Date.now() - start,
+    };
+    if (res.statusCode >= 400 || req.path.startsWith('/api/')) {
+      console.log(JSON.stringify(entry));
+    }
+  });
   next();
 });
 
@@ -36,24 +74,14 @@ function proxyChain(req) {
   return xff.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-const rateMap = new Map();
-function rateLimit(key, max = 60, windowMs = 60_000) {
-  const now = Date.now();
-  const entry = rateMap.get(key) ?? { count: 0, reset: now + windowMs };
-  if (now > entry.reset) {
-    entry.count = 0;
-    entry.reset = now + windowMs;
-  }
-  entry.count += 1;
-  rateMap.set(key, entry);
-  return entry.count <= max;
-}
+const apiLimiter = rateLimitMiddleware({ max: 60, windowMs: 60_000 });
+const bulkLimiter = rateLimitMiddleware({ max: 30, windowMs: 60_000 });
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', apiLimiter, (_req, res) => {
   res.json({ ok: true, database: dbReady, version: '1.0.0' });
 });
 
-app.get('/api/me', async (req, res) => {
+app.get('/api/me', apiLimiter, async (req, res) => {
   const ips = extractClientIps(req);
   const ip = pickGeoIp(ips);
   const chain = proxyChain(req);
@@ -71,7 +99,7 @@ app.get('/api/me', async (req, res) => {
   });
 });
 
-app.get('/api/lookup/:ip', async (req, res) => {
+app.get('/api/lookup/:ip', apiLimiter, async (req, res) => {
   const ip = decodeURIComponent(req.params.ip).trim();
   if (!isValidIp(ip)) {
     return res.status(400).json({ error: 'Invalid IP address' });
@@ -80,12 +108,7 @@ app.get('/api/lookup/:ip', async (req, res) => {
   res.json({ ...geo, detected: false });
 });
 
-app.post('/api/bulk', async (req, res) => {
-  const clientIp = req.ip || 'unknown';
-  if (!rateLimit(`bulk:${clientIp}`, 30)) {
-    return res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' });
-  }
-
+app.post('/api/bulk', bulkLimiter, async (req, res) => {
   const ips = Array.isArray(req.body?.ips) ? req.body.ips.map((s) => String(s).trim()).filter(Boolean) : [];
   if (!ips.length) return res.status(400).json({ error: 'Provide an "ips" array' });
   if (ips.length > 20) return res.status(400).json({ error: 'Too many IPs (max 20)' });
@@ -125,13 +148,16 @@ app.get('/lookup/:ip', (_req, res) => {
   res.sendFile(join(__dirname, 'public', 'index.html'));
 });
 
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(join(__dirname, 'public'), {
+  dotfiles: 'deny',
+  index: false,
+}));
 
 app.get('/', (_req, res) => {
   res.sendFile(join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`IPScope running at http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`IPScope running at http://${HOST}:${PORT}`);
   if (!dbReady) console.log('Run npm run download-db to enable geolocation.');
 });

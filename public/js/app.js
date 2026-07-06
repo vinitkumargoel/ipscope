@@ -3,8 +3,10 @@ import { getBrowserInfo } from './browser-info.js';
 import {
   copyText, saveRecent, renderRecentList, exportJson, shareUrl,
   getLookupIpFromPath, updateShareUrl, printReport, setLastLookup, getLastLookup,
+  isValidIpClient,
 } from './features.js';
 import { renderSiteFooter, initCookieConsent, initTheme, toggleTheme } from './layout.js';
+import { escapeHtml } from './escape.js';
 
 const FLAG = {
   IN: '🇮🇳', US: '🇺🇸', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷',
@@ -39,6 +41,14 @@ function hideError() {
 function setText(id, val, fallback = '—') {
   const el = $(id);
   if (el) el.textContent = (val != null && val !== '') ? val : fallback;
+}
+
+function setToolbarHtml(html) {
+  $('toolbar-label').innerHTML = html;
+}
+
+function setToolbarWithIp(prefix, ip, suffix = '') {
+  setToolbarHtml(`${prefix}<span class="you">${escapeHtml(ip)}</span>${suffix}`);
 }
 
 function isPrivateIp(ip) {
@@ -166,9 +176,12 @@ function setMapLinks(osm, google) {
     el.textContent = '—';
     return;
   }
+  const safeUrl = (url) => (typeof url === 'string' && /^https:\/\//.test(url) ? url : null);
+  const osmUrl = safeUrl(osm);
+  const googleUrl = safeUrl(google);
   el.innerHTML = [
-    osm ? `<a href="${osm}" target="_blank" rel="noopener" style="color:var(--blue)">OpenStreetMap</a>` : '',
-    google ? `<a href="${google}" target="_blank" rel="noopener" style="color:var(--blue)">Google Maps</a>` : '',
+    osmUrl ? `<a href="${escapeHtml(osmUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue)">OpenStreetMap</a>` : '',
+    googleUrl ? `<a href="${escapeHtml(googleUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue)">Google Maps</a>` : '',
   ].filter(Boolean).join(' · ');
 }
 
@@ -189,9 +202,11 @@ function renderData(data, isYou = true) {
   const ip = data.ip ?? '—';
   currentIp = ip !== '—' ? ip : currentIp;
 
-  $('toolbar-label').innerHTML = isYou
-    ? 'Showing <span class="you">your</span> IP details'
-    : `Lookup results for <span class="you">${ip}</span>`;
+  if (isYou) {
+    setToolbarHtml('Showing <span class="you">your</span> IP details');
+  } else {
+    setToolbarWithIp('Lookup results for ', ip);
+  }
 
   updatePageTitle(data, isYou);
   updateIpTiles(ip, isYou);
@@ -304,18 +319,18 @@ function pickGeoLookupIp() {
 async function loadMyIp() {
   document.querySelectorAll('.tile').forEach((t) => t.classList.add('loading'));
   hideError();
-  $('toolbar-label').innerHTML = 'Detecting <span class="you">your</span> public IP…';
+  setToolbarHtml('Detecting <span class="you">your</span> public IP…');
 
   try {
     const serverData = await fetchJson('/api/me');
-    $('toolbar-label').innerHTML = 'Resolving <span class="you">your</span> location…';
+    setToolbarHtml('Resolving <span class="you">your</span> location…');
 
     await resolveMyPublicIps(serverData);
 
     const geoIp = pickGeoLookupIp();
     if (!geoIp) {
       updateIpTiles(null, true);
-      $('toolbar-label').innerHTML = 'Could not detect your public IP';
+      setToolbarHtml('Could not detect your public IP');
       showError('Could not detect your public IP. Check your network or enter your IP manually above.');
       return;
     }
@@ -325,7 +340,7 @@ async function loadMyIp() {
     updateIpTiles(geoIp, true);
     history.replaceState(null, '', '/');
   } catch (e) {
-    $('toolbar-label').innerHTML = 'Something went wrong';
+    setToolbarHtml('Something went wrong');
     showError(e.message);
   } finally {
     document.querySelectorAll('.tile').forEach((t) => t.classList.remove('loading'));
@@ -334,9 +349,13 @@ async function loadMyIp() {
 
 async function lookupIp(ip) {
   hideError();
+  if (!isValidIpClient(ip)) {
+    showError('Invalid IP address format.');
+    return;
+  }
   const btn = $('lookup-btn');
   btn.disabled = true;
-  $('toolbar-label').innerHTML = `Looking up <span class="you">${ip}</span>…`;
+  setToolbarWithIp('Looking up ', ip, '…');
   document.querySelectorAll('.tile').forEach((t) => t.classList.add('loading'));
   try {
     const data = await fetchJson(`/api/lookup/${encodeURIComponent(ip)}`);
@@ -346,7 +365,7 @@ async function lookupIp(ip) {
     renderData(data, false);
     updateShareUrl(ip);
   } catch (e) {
-    $('toolbar-label').innerHTML = 'Lookup failed';
+    setToolbarHtml('Lookup failed');
     showError(e.message);
   } finally {
     btn.disabled = false;

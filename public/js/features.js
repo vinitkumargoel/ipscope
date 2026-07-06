@@ -1,3 +1,5 @@
+import { escapeHtml } from './escape.js';
+
 const RECENT_KEY = 'ipscope-recent';
 const MAX_RECENT = 10;
 
@@ -36,18 +38,28 @@ export function renderRecentList(onSelect) {
   const el = document.getElementById('recent-list');
   if (!el) return;
   const list = getRecent();
+  el.replaceChildren();
   if (!list.length) {
-    el.innerHTML = '<span class="recent-empty">No recent lookups</span>';
+    const empty = document.createElement('span');
+    empty.className = 'recent-empty';
+    empty.textContent = 'No recent lookups';
+    el.append(empty);
     return;
   }
-  el.innerHTML = list.map((r) => {
-    const label = [r.city, r.country].filter(Boolean).join(', ') || r.ip;
-    return `<button type="button" class="recent-item" data-ip="${r.ip}">${r.ip}<span>${label}</span></button>`;
-  }).join('');
 
-  el.querySelectorAll('.recent-item').forEach((btn) => {
-    btn.addEventListener('click', () => onSelect?.(btn.dataset.ip));
-  });
+  for (const r of list) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'recent-item';
+    btn.dataset.ip = r.ip;
+    btn.append(r.ip);
+    const label = [r.city, r.country].filter(Boolean).join(', ') || r.ip;
+    const span = document.createElement('span');
+    span.textContent = label;
+    btn.append(span);
+    btn.addEventListener('click', () => onSelect?.(r.ip));
+    el.append(btn);
+  }
 }
 
 export function exportJson(data, ip) {
@@ -70,13 +82,28 @@ export function shareUrl(ip) {
   }
 }
 
+export function isValidIpClient(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  if (ip.includes(':')) {
+    return /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i.test(ip) || /^::1$/.test(ip);
+  }
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  return parts.every((p) => {
+    const n = Number(p);
+    return Number.isInteger(n) && n >= 0 && n <= 255 && String(n) === p;
+  });
+}
+
 export function getLookupIpFromPath() {
   const m = window.location.pathname.match(/^\/lookup\/(.+)$/);
-  return m ? decodeURIComponent(m[1]) : null;
+  if (!m) return null;
+  const ip = decodeURIComponent(m[1]);
+  return isValidIpClient(ip) ? ip : null;
 }
 
 export function updateShareUrl(ip) {
-  if (!ip || ip === '—') return;
+  if (!ip || ip === '—' || !isValidIpClient(ip)) return;
   const path = `/lookup/${encodeURIComponent(ip)}`;
   if (window.location.pathname !== path) {
     history.replaceState(null, '', path);

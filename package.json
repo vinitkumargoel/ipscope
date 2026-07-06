@@ -12,10 +12,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "download-db": "node scripts/download-db.js"
+    "download-db": "node scripts/download-db.js",
+    "postinstall": "node scripts/vendor-assets.js"
   },
   "dependencies": {
     "express": "^4.21.2",
+    "leaflet": "^1.9.4",
     "geo-tz": "^8.1.7",
     "maxmind": "^4.3.22",
     "suncalc": "^2.0.0"
