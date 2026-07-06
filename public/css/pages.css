@@ -212,6 +212,54 @@
 .threat-badge.low { background: var(--green-light); color: var(--green); }
 .threat-badge.medium { background: #fef3c7; color: #b45309; }
 .threat-badge.high { background: #fef2f2; color: #b91c1c; }
+.threat-badge.tz-mismatch { max-width: 100%; line-height: 1.35; }
+
+.tile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.tile-action-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--blue);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tile-action-btn:hover { background: var(--blue-light); }
+
+.bulk-results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.bulk-results-toolbar #bulk-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.bulk-row a {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.bulk-row a:hover { text-decoration: underline; }
 
 /* ── Cookie banner ── */
 .cookie-banner {

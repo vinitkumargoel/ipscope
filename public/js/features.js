@@ -64,10 +64,29 @@ export function renderRecentList(onSelect) {
 
 export function exportJson(data, ip) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `ipscope-${(ip || 'lookup').replace(/:/g, '-')}.json`);
+}
+
+export function exportCsv(rows, filename = 'ipscope-bulk') {
+  if (!rows?.length) return;
+  const header = ['ip', 'city', 'region', 'country', 'countryCode', 'isp', 'asn', 'timezone', 'riskLabel', 'error'];
+  const escape = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [
+    header.join(','),
+    ...rows.map((r) => header.map((k) => escape(r[k])).join(',')),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `${filename}.csv`);
+}
+
+function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ipscope-${(ip || 'lookup').replace(/:/g, '-')}.json`;
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
 }

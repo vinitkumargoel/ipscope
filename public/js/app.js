@@ -19,6 +19,8 @@ let myIpv4 = null;
 let myIpv6 = null;
 let myLocalIps = [];
 let currentIp = null;
+let clockTimer = null;
+let activeClockTz = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -84,30 +86,92 @@ function initMap(lat, lng, label) {
   setText('map-coords', `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'} · ${Math.abs(lng).toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`);
 }
 
+function utcOffsetNow(tz) {
+  if (!tz) return null;
+  try {
+    return new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
+      .formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function localTimeNow(tz) {
+  if (!tz) return null;
+  try {
+    return new Date().toLocaleTimeString('en-GB', {
+      timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function stopClock() {
+  if (clockTimer) {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+  activeClockTz = null;
+}
+
+function startClock(tz, utcOffset) {
+  stopClock();
+  if (!tz) return;
+
+  activeClockTz = tz;
+  const tick = () => {
+    const time = localTimeNow(tz);
+    const offset = utcOffset ?? utcOffsetNow(tz);
+    if (time) setText('tile-localtime', time);
+    if (time && offset) setText('tile-time-sub', `${offset} · ${time}`);
+  };
+  tick();
+  clockTimer = setInterval(tick, 1000);
+}
+
 function updateTimezone(tz, utcOffset, localTime) {
   setText('tile-timezone', tz);
-  if (localTime && utcOffset) {
-    setText('tile-time-sub', `${utcOffset} · ${localTime}`);
-    setText('tile-localtime', localTime);
-    setText('tile-utcoffset', utcOffset);
-  } else if (tz) {
-    try {
-      const time = new Date().toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const offset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
-        .formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? '';
-      setText('tile-time-sub', `${offset} · ${time}`);
-      setText('tile-localtime', time);
-      setText('tile-utcoffset', offset);
-    } catch {
-      setText('tile-time-sub', '—');
-      setText('tile-localtime', '—');
-      setText('tile-utcoffset', '—');
-    }
-  } else {
+  if (!tz) {
+    stopClock();
     setText('tile-time-sub', '—');
     setText('tile-localtime', '—');
     setText('tile-utcoffset', '—');
+    return;
   }
+
+  const offset = utcOffset ?? utcOffsetNow(tz);
+  const time = localTime ?? localTimeNow(tz);
+  setText('tile-utcoffset', offset ?? '—');
+  if (time && offset) {
+    setText('tile-time-sub', `${offset} · ${time}`);
+    setText('tile-localtime', time);
+  } else {
+    setText('tile-time-sub', '—');
+    setText('tile-localtime', '—');
+  }
+  startClock(tz, offset);
+}
+
+function updateTimezoneMismatch(ipTz, isYou) {
+  const el = $('tile-tz-mismatch');
+  if (!el) return;
+  if (!isYou || !ipTz) {
+    el.style.display = 'none';
+    return;
+  }
+
+  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const ipOffset = utcOffsetNow(ipTz);
+  const browserOffset = utcOffsetNow(browserTz);
+
+  if (!ipOffset || !browserOffset || ipOffset === browserOffset) {
+    el.style.display = 'none';
+    return;
+  }
+
+  el.style.display = 'inline-flex';
+  el.textContent = `Timezone mismatch — browser: ${browserTz}, IP: ${ipTz}`;
 }
 
 function updateThreatBadge(data) {
@@ -167,6 +231,38 @@ function showConnectionSection(show, data = {}) {
     setText('tile-https', data.connectionSecure ? 'Secured (HTTPS)' : 'Not secured (HTTP)');
     setText('tile-local-ips', myLocalIps.length ? myLocalIps.join(', ') : 'None detected');
   }
+}
+
+function setAbuseContact(email) {
+  const valueEl = $('tile-abuse');
+  const actionsEl = $('tile-abuse-actions');
+  if (!valueEl) return;
+
+  const valid = email && email !== 'Not published' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!valid) {
+    setText('tile-abuse', email ?? 'Not published');
+    if (actionsEl) actionsEl.style.display = 'none';
+    return;
+  }
+
+  setText('tile-abuse', email);
+  if (!actionsEl) return;
+
+  actionsEl.replaceChildren();
+  actionsEl.style.display = 'flex';
+
+  const mail = document.createElement('a');
+  mail.className = 'tile-action-btn';
+  mail.href = `mailto:${encodeURIComponent(email)}`;
+  mail.textContent = 'Report abuse';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'tile-action-btn';
+  copyBtn.textContent = 'Copy email';
+  copyBtn.addEventListener('click', () => copyText(email, copyBtn));
+
+  actionsEl.append(mail, copyBtn);
 }
 
 function setMapLinks(osm, google) {
@@ -269,13 +365,14 @@ function renderData(data, isYou = true) {
   setText('tile-rdap-name', data.rdapName ?? '—');
   setText('tile-rdap-range', data.rdapRange ?? '—');
   setText('tile-rdap-desc', data.rdapDescription ?? '—');
-  setText('tile-abuse', data.abuseEmail ?? 'Not published');
+  setAbuseContact(data.abuseEmail);
 
   const dates = [data.rdapRegistered && `Registered ${data.rdapRegistered}`, data.rdapUpdated && `Updated ${data.rdapUpdated}`]
     .filter(Boolean).join(' · ');
   setText('tile-rdap-dates', dates || '—');
 
   updateTimezone(data.timezone, data.utcOffset, data.localTime);
+  updateTimezoneMismatch(data.timezone, isYou);
 
   if (data.latitude && data.longitude) {
     const label = [data.city, data.country].filter(Boolean).join(', ') || 'Location';
