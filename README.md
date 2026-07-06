@@ -40,8 +40,8 @@ See [API docs](public/api-docs.html) for full reference.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3920` | Server port |
-| `SITE_URL` | `https://ipscope.app` | Canonical URL for sitemap |
-| `SITE_EMAIL` | `legal@ipscope.app` | Contact email |
+| `SITE_URL` | `https://ip.vinitk.dev` | Canonical URL for sitemap |
+| `SITE_EMAIL` | `legal@vinitk.dev` | Contact email |
 
 ## Data sources
 

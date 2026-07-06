@@ -1,6 +1,6 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ipscope.app/sitemap.xml
+Sitemap: https://ip.vinitk.dev/sitemap.xml
 
 Disallow: /api/
