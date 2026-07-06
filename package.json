@@ -1,0 +1,23 @@
+{
+  "name": "ipscope",
+  "version": "1.0.0",
+  "description": "Self-hosted IP geolocation — offline MMDB, no API keys",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vinitkumargoel/ipscope.git"
+  },
+  "keywords": ["ip", "geolocation", "ipv6", "mmdb", "what-is-my-ip", "self-hosted"],
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "download-db": "node scripts/download-db.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "geo-tz": "^8.1.7",
+    "maxmind": "^4.3.22",
+    "suncalc": "^2.0.0"
+  }
+}

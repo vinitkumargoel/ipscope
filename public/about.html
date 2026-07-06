@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About IPScope — Self-Hosted IP Geolocation</title>
+  <meta name="description" content="About IPScope: a self-hosted IP geolocation tool using offline MMDB databases. No API keys, IPv4 and IPv6, city-level accuracy.">
+  <link rel="canonical" href="https://ipscope.app/about">
+  <meta name="robots" content="index, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bento.css">
+  <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+  <header class="page-hero">
+    <div class="page-hero-inner">
+      <nav class="page-hero-nav">
+        <a class="logo" href="/">IP<span>Scope</span></a>
+        <a class="back" href="/">← Back to lookup</a>
+      </nav>
+      <h1>About IPScope</h1>
+      <p>Self-hosted IP geolocation — private, fast, and offline-first.</p>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <h2>What is IPScope?</h2>
+    <p>IPScope is a web application that shows your public IP address and geolocation details — country, city, ISP, ASN, timezone, coordinates, and more. Unlike cloud geolocation APIs, lookups run entirely on your server using offline MaxMind-compatible MMDB databases.</p>
+
+    <h2>Why we built it</h2>
+    <ul>
+      <li><strong>Privacy:</strong> No third-party API calls for core geolocation.</li>
+      <li><strong>Cost:</strong> No per-request API fees after database download.</li>
+      <li><strong>Speed:</strong> Local MMDB lookups are sub-millisecond.</li>
+      <li><strong>Completeness:</strong> IPv4, IPv6, RDAP registry data, reverse DNS, and browser fingerprint tiles.</li>
+    </ul>
+
+    <h2>Technology</h2>
+    <p>Node.js + Express backend, MaxMind MMDB readers (DB-IP + GeoLite2 merge), RDAP for registry enrichment, Leaflet maps, and a responsive bento-grid UI.</p>
+
+    <h2>Open source</h2>
+    <p>IPScope is open source. Deploy your own instance, customize it, and contribute improvements on GitHub.</p>
+
+    <h2>Data sources</h2>
+    <ul>
+      <li>DB-IP City &amp; ASN databases</li>
+      <li>GeoLite2 City (sapics/ip-location-db)</li>
+      <li>Public RDAP registries (RIPE, ARIN, APNIC, etc.)</li>
+      <li>OpenStreetMap tiles</li>
+    </ul>
+  </main>
+
+  <div id="site-footer-mount"></div>
+  <script type="module" src="/js/page-init.js"></script>
+</body>
+</html>

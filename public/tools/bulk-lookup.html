@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk IP Lookup — IPScope</title>
+  <meta name="description" content="Look up multiple IP addresses at once. Bulk IPv4 and IPv6 geolocation with country, city, and ISP results.">
+  <link rel="canonical" href="https://ipscope.app/tools/bulk-lookup">
+  <meta name="robots" content="index, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bento.css">
+  <link rel="stylesheet" href="/css/pages.css">
+</head>
+<body>
+  <header class="page-hero">
+    <div class="page-hero-inner">
+      <nav class="page-hero-nav">
+        <a class="logo" href="/">IP<span>Scope</span></a>
+        <a class="back" href="/">← Back to lookup</a>
+      </nav>
+      <h1>Bulk IP Lookup</h1>
+      <p>Look up up to 20 IP addresses at once.</p>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <div class="bulk-form">
+      <p>Enter one IP per line (IPv4 or IPv6):</p>
+      <textarea id="bulk-input" placeholder="8.8.8.8&#10;1.1.1.1&#10;2001:4860:4860::8888"></textarea>
+      <div class="action-bar" style="margin-top:1rem">
+        <button type="button" class="action-btn primary" id="bulk-submit">Look up all</button>
+        <button type="button" class="action-btn" id="bulk-clear">Clear</button>
+      </div>
+    </div>
+
+    <div id="bulk-error" class="error-banner" style="margin-top:1rem"></div>
+
+    <div class="bulk-results" id="bulk-results" style="display:none">
+      <div class="bulk-row header">
+        <span>IP</span><span>Location</span><span>ISP / ASN</span>
+      </div>
+      <div id="bulk-rows"></div>
+    </div>
+  </main>
+
+  <div id="site-footer-mount"></div>
+  <script type="module">
+    import { initTheme, initCookieConsent, renderSiteFooter } from '../js/layout.js';
+
+    initTheme();
+    initCookieConsent();
+    document.getElementById('site-footer-mount').innerHTML = renderSiteFooter();
+
+    const input = document.getElementById('bulk-input');
+    const error = document.getElementById('bulk-error');
+    const results = document.getElementById('bulk-results');
+    const rows = document.getElementById('bulk-rows');
+
+    function showError(msg) {
+      error.textContent = msg;
+      error.classList.add('show');
+    }
+
+    function hideError() {
+      error.classList.remove('show');
+    }
+
+    document.getElementById('bulk-clear').addEventListener('click', () => {
+      input.value = '';
+      results.style.display = 'none';
+      rows.innerHTML = '';
+      hideError();
+    });
+
+    document.getElementById('bulk-submit').addEventListener('click', async () => {
+      hideError();
+      const ips = input.value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+      if (!ips.length) return showError('Enter at least one IP address.');
+      if (ips.length > 20) return showError('Maximum 20 IPs per request.');
+
+      const btn = document.getElementById('bulk-submit');
+      btn.disabled = true;
+      btn.textContent = 'Looking up…';
+
+      try {
+        const res = await fetch('/api/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ips }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+
+        rows.innerHTML = data.results.map((r) => {
+          if (r.error) {
+            return `<div class="bulk-row"><span>${r.ip}</span><span style="color:#b91c1c">${r.error}</span><span>—</span></div>`;
+          }
+          const loc = [r.city, r.country].filter(Boolean).join(', ') || 'Unknown';
+          const isp = [r.isp, r.asn].filter(Boolean).join(' · ') || '—';
+          return `<div class="bulk-row"><span><a href="/lookup/${encodeURIComponent(r.ip)}">${r.ip}</a></span><span>${loc}</span><span>${isp}</span></div>`;
+        }).join('');
+        results.style.display = 'block';
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Look up all';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ — What Is My IP? IP Geolocation Questions | IPScope</title>
+  <meta name="description" content="Frequently asked questions about IP addresses, geolocation accuracy, IPv6, VPN detection, and how IPScope works.">
+  <link rel="canonical" href="https://ipscope.app/faq">
+  <meta name="robots" content="index, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bento.css">
+  <link rel="stylesheet" href="/css/pages.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {"@type": "Question", "name": "What is my IP address?", "acceptedAnswer": {"@type": "Answer", "text": "Your IP address is a unique number assigned to your internet connection. Visit IPScope to see your public IPv4 and IPv6 addresses instantly."}},
+      {"@type": "Question", "name": "How accurate is IP geolocation?", "acceptedAnswer": {"@type": "Answer", "text": "IP geolocation is typically accurate to city or region level (10–50 km), not your exact street address. VPNs and mobile networks may show different locations."}},
+      {"@type": "Question", "name": "Does IPScope use third-party APIs?", "acceptedAnswer": {"@type": "Answer", "text": "No. Core geolocation uses offline MMDB databases on the server. RDAP registry lookups use public internet registries."}}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="page-hero">
+    <div class="page-hero-inner">
+      <nav class="page-hero-nav">
+        <a class="logo" href="/">IP<span>Scope</span></a>
+        <a class="back" href="/">← Back to lookup</a>
+      </nav>
+      <h1>Frequently Asked Questions</h1>
+      <p>Everything you need to know about IP addresses and geolocation.</p>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <details class="faq-item" open>
+      <summary>What is my IP address?</summary>
+      <div class="faq-body"><p>Your IP (Internet Protocol) address is a number assigned to your connection by your ISP. Visit the <a href="/">IPScope homepage</a> to see your public IPv4 and IPv6 addresses, location, and ISP details automatically.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What is the difference between IPv4 and IPv6?</summary>
+      <div class="faq-body"><p>IPv4 uses 32-bit addresses (e.g. 203.0.113.45). IPv6 uses 128-bit addresses (e.g. 2001:db8::1) to solve IPv4 exhaustion. Many networks have both; IPScope detects each when available.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How accurate is IP geolocation?</summary>
+      <div class="faq-body"><p>Typically city or region level (10–50 km radius). It reflects where your ISP registers the IP block, not your GPS location. VPNs, proxies, and corporate networks often show a different city or country.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can websites see my exact home address from my IP?</summary>
+      <div class="faq-body"><p>No. Standard IP geolocation cannot determine your street address. It resolves to approximate city-level coordinates. See our <a href="/disclaimer">Disclaimer</a>.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Does IPScope use third-party geolocation APIs?</summary>
+      <div class="faq-body"><p>No API keys required. Lookups use offline DB-IP and GeoLite2 MMDB files on the server. RDAP queries use public registry endpoints for ASN and network ownership data.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can IPScope detect VPN or proxy usage?</summary>
+      <div class="faq-body"><p>IPScope shows heuristic indicators (datacenter ISP names, proxy chain headers, known VPN ASNs). This is indicative, not definitive proof of VPN use.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How do I look up someone else's IP?</summary>
+      <div class="faq-body"><p>Enter any public IPv4 or IPv6 address in the search box on the homepage, or visit <code>/lookup/1.2.3.4</code> directly. Only use this for lawful purposes.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Is there an API?</summary>
+      <div class="faq-body"><p>Yes. See <a href="/api-docs">API documentation</a> for <code>/api/me</code>, <code>/api/lookup/:ip</code>, and bulk lookup endpoints.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How do I self-host IPScope?</summary>
+      <div class="faq-body"><p>Clone the GitHub repo, run <code>npm install</code>, <code>npm run download-db</code>, then <code>npm start</code>. The server runs on port 3920 by default.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Why does my location show the wrong city?</summary>
+      <div class="faq-body"><p>Your ISP may route traffic through a hub in another city, you may be on a VPN, or the database record may be outdated. Mobile networks often show the carrier's gateway city.</p></div>
+    </details>
+  </main>
+
+  <div id="site-footer-mount"></div>
+  <script type="module" src="/js/page-init.js"></script>
+</body>
+</html>
