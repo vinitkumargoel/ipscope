@@ -1,13 +1,15 @@
-import { renderSiteFooter, initCookieConsent, initTheme, toggleTheme } from './layout.js';
+import { initCookieConsent, initThemeToggles } from './layout.js';
 
-document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
+// Content pages need nothing but the cookie notice and the theme toggle. The
+// footer, breadcrumbs and metadata are all rendered server-side, and the initial
+// theme is applied pre-paint by /js/theme-init.js.
+function init() {
   initCookieConsent();
+  initThemeToggles();
+}
 
-  const footerMount = document.getElementById('site-footer-mount');
-  if (footerMount) footerMount.innerHTML = renderSiteFooter();
-
-  document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
-    btn.addEventListener('click', toggleTheme);
-  });
-});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

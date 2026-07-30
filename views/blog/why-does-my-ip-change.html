@@ -1,0 +1,71 @@
+    <h2>The short answer</h2>
+    <p>Your IP address changes because almost every consumer connection is assigned an address temporarily rather than permanently, and the assignment is renegotiated whenever the lease expires, the equipment restarts, or the network decides to move you. Nothing is wrong, and it is not something you did. A fixed address is a product your provider sells separately, and most residential and mobile plans do not include one.</p>
+
+    <h2>Dynamic addressing is the default, not a fault</h2>
+    <p>IPv4 has 32 bits of address space, far fewer addresses than there are devices wanting one, and providers dealt with that decades ago by pooling addresses and lending them out. When your router connects it asks the provider's network for configuration and gets an address with an expiry attached. That expiry is the lease, and because the address is borrowed the provider may give you a different one next time.</p>
+
+    <h3>What a DHCP lease actually does</h3>
+    <p>Leases last hours or days, and the client does not wait for expiry: roughly halfway through it contacts the server that issued the address and asks to renew. Normally the server extends the same address and nothing observable happens. If it does not answer, the client keeps retrying and later broadcasts to any server that will listen; only if all that fails does the address lapse.</p>
+    <p>So a renewal is not a change. Renewals happen quietly and constantly; a change happens when one fails or is refused. Hence login logs that show long stability punctuated by an abrupt jump:</p>
+    <pre>2026-07-08 07:14:02  session start  198.51.100.24
+2026-07-15 07:02:55  session start  198.51.100.24
+2026-07-22 06:58:11  session start  198.51.100.24
+2026-07-29 04:31:40  session start  203.0.113.91</pre>
+    <p>Three weeks on one address, then a new one: a lease renewed several times and then not.</p>
+
+    <h3>Why the address often stays the same for months</h3>
+    <p>Many providers run what is informally called a sticky dynamic address: the server records which customer identifier held which address and hands the same one back when that client returns, even after a gap. Still dynamic in every technical sense, but it can outlast several router replacements. That is why two customers of the same provider can report opposite experiences; the difference is pool pressure and local policy.</p>
+
+    <h3>What actually triggers a new address</h3>
+    <ul>
+      <li><strong>Router or modem power cycle.</strong> The most common cause. A clean shutdown releases the lease; pulling the plug does not, so what follows depends on whether the server still holds your reservation.</li>
+      <li><strong>An outage upstream.</strong> When provider equipment restarts, everything behind it re-requests configuration at once and the pool is reshuffled.</li>
+      <li><strong>Changing the device the provider sees.</strong> A new router, or a changed WAN MAC address, presents a new client identity and usually earns a new address.</li>
+      <li><strong>Lease expiry with no renewal.</strong> Rare on a connection that stays up, normal on one down longer than the lease.</li>
+      <li><strong>Deliberate rotation.</strong> Some providers cycle customer addresses on a schedule, historically to discourage running servers on residential lines.</li>
+    </ul>
+    <p>Worth ruling out: an address from <code>169.254.0.0/16</code> is IPv4 link-local, which a device assigns itself when it gets no answer at all. The IPv6 equivalent is <code>fe80::/10</code>. Neither is a real assignment; both mean DHCP failed.</p>
+
+    <h2>Carrier-grade NAT: when the address was never yours</h2>
+    <p>Many connections get no public IPv4 address at all. Instead the provider gives you an address from <code>100.64.0.0/10</code>, a range reserved for shared space between the customer and the provider's translation equipment, and several customers share one public address on the way out. This is not the same as the private ranges inside your home: <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code> are yours to manage, whereas <code>100.64.0.0/10</code> sits one level up, inside your provider's network.</p>
+    <p>Compare your router's WAN address with what <a href="/">this site reports</a>. If the router says <code>100.82.14.203</code> and the lookup returns <code>203.0.113.7</code>, you are behind carrier-grade NAT. Two consequences follow:</p>
+    <ul>
+      <li>The address the rest of the internet sees can change without anything changing on your side. It belongs to the provider's translation layer, which may rebalance you across several public addresses.</li>
+      <li>Inbound connections cannot reach you. Port forwarding on your own router does nothing, because the forwarding that matters happens on equipment you cannot configure. If a self-hosted service is unreachable from outside despite correct settings, this is the usual reason.</li>
+    </ul>
+    <p>It is also why neighbours can appear to share one address, which undermines treating an address as identifying a household. More in <a href="/blog/public-vs-private-ip">public vs private IP addresses</a>.</p>
+
+    <h2>Mobile connections change addresses constantly</h2>
+    <p>On a phone the address is tied to the data session, not to the phone. Establish a session and you get an address from the operator's pool; drop it, by switching airplane mode or losing coverage in a lift, and the next may differ. Mobile networks also sit behind large-scale NAT almost universally, so the address you present is shared.</p>
+    <p>Moving between cell towers usually does <em>not</em> change your address: handover preserves the session and the gateway anchoring it stays put. Travel far enough that the operator moves you to a different gateway and the address changes mid-journey. That is also why a mobile lookup often places you in the city where the gateway lives rather than where you are standing.</p>
+
+    <h2>IPv6 adds its own churn</h2>
+    <p>IPv6 has 128 bits of address space, so scarcity is not the pressure it is with IPv4 and providers can delegate a whole prefix per customer. That solves one problem and creates another.</p>
+    <ul>
+      <li><strong>The prefix can still change.</strong> It is delegated to your router with a lifetime, and some providers rotate it on reconnection much as they rotate an IPv4 address.</li>
+      <li><strong>Your device rotates its own addresses deliberately.</strong> Privacy extensions generate temporary addresses within the prefix and cycle them, so no single address becomes a stable identifier. A machine holds several valid IPv6 addresses at once and prefers a temporary one outbound.</li>
+    </ul>
+    <p>So a device on IPv6 can show a different address on consecutive lookups while nothing about the connection changed. Check the <code>version</code> field before blaming your provider. <a href="/blog/ipv4-vs-ipv6">IPv4 vs IPv6: what is actually different</a> covers the rest.</p>
+
+    <h2>Will your provider ever give you a fixed address?</h2>
+    <p>There is no protocol-level way to ask. It is a commercial question, so check the commercial signals:</p>
+    <ol>
+      <li><strong>Read the tariff, not the support forum.</strong> Static addressing is normally a named add-on or a business-tier feature. If it appears nowhere in the provider's pricing, it is not on offer for a residential plan.</li>
+      <li><strong>Check for carrier-grade NAT.</strong> Behind it, a static public address is not a small configuration change; it means moving you off shared address space, which some providers only do on a different product.</li>
+      <li><strong>Look at your reverse DNS.</strong> Consumer dynamic pools tend to encode it in the hostname, with fragments like <code>dyn</code>, <code>pool</code>, <code>dhcp</code> or <code>dsl</code> and the address embedded in the name:
+        <pre>dyn-203-0-113-91.cust.example-isp.net</pre>
+        Static allocations often read more like <code>static-198-51-100-12.example-isp.net</code>, or carry a customer name. A hint rather than proof, since operators name these freely, but a fast one.
+      </li>
+      <li><strong>Record your address for a couple of weeks.</strong> If it never moves, you may not need a static one. For reliable inbound access, dynamic DNS solves the naming problem cheaply, but not carrier-grade NAT, which needs a tunnel through a host that does have a public address.</li>
+    </ol>
+
+    <h2>A changing address changes your reported location</h2>
+    <p>Every geolocation database, including the one behind this site, maps address ranges to places. Take a new address and you may land in a range registered against a different city, so your apparent location can shift by anything from a few streets to a different region. This is approximate work. The country is usually right; the city can be well off, because the answer is inferred from registry and routing data rather than measured. <a href="/blog/why-ip-shows-wrong-city">Why your IP location shows the wrong city</a> covers why those records go stale.</p>
+
+    <h2>What to do next</h2>
+    <p>Run a lookup on <a href="/">the home page</a>, note the address and the <code>version</code> field, then compare it with your router's WAN address. Together those two numbers tell you whether you hold a public address or sit behind carrier-grade NAT.</p>
+    <ul>
+      <li><a href="/tools/reverse-dns">Reverse DNS lookup</a> &ndash; read the hostname pattern for hints that your address comes from a dynamic pool.</li>
+      <li><a href="/tools/timezone-check">Timezone check</a> &ndash; compare the timezone your address implies against your device clock, a quick way to notice that a new address moved your apparent location.</li>
+    </ul>
+    <p>If the address changed right after you connected to something, rather than on its own schedule, the cause may not be your provider at all. <a href="/blog/is-my-vpn-working">Is my VPN working? Checks that actually prove it</a> covers how to tell the two apart.</p>

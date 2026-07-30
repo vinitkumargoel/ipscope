@@ -1,0 +1,360 @@
+    <div id="error" class="error-banner"></div>
+
+    <div class="toolbar">
+      <h2 id="toolbar-label">What is my IP address?</h2>
+      <div class="search-box">
+        <input type="text" id="lookup-input" placeholder="Lookup any IPv4 or IPv6…" autocomplete="off" aria-label="IP address lookup">
+        <button type="button" id="lookup-btn">Go</button>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button type="button" class="action-btn" id="btn-copy-ip">Copy IP</button>
+      <button type="button" class="action-btn" id="btn-share">Share link</button>
+      <button type="button" class="action-btn" id="btn-export">Export JSON</button>
+      <button type="button" class="action-btn" id="btn-print">Print report</button>
+      <button type="button" class="action-btn" id="btn-refresh">Refresh</button>
+    </div>
+
+    <div class="recent-panel">
+      <h3>Recent lookups</h3>
+      <div class="recent-list" id="recent-list"><span class="recent-empty">No recent lookups</span></div>
+    </div>
+
+    <div class="bento">
+      <div class="tile hero-tile">
+        <div class="tile-label">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          IP Address
+        </div>
+        <div class="tile-value lg" id="tile-ip-main"><span class="skeleton"></span></div>
+        <div class="tile-value sm" id="tile-ip-sub">—</div>
+        <div class="ipv-tags">
+          <span class="ipv-tag on" id="tag-v4">IPv4</span>
+          <span class="ipv-tag off" id="tag-v6">IPv6</span>
+          <span class="ipv-tag on" id="tag-public">Public</span>
+        </div>
+        <div class="threat-badge low" id="tile-threat" style="display:none"></div>
+        <div class="threat-badge medium tz-mismatch" id="tile-tz-mismatch" style="display:none" title="Your browser timezone differs from your IP location timezone — common with VPNs or incorrect system settings"></div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+          Country
+        </div>
+        <div class="flag-wrap" id="tile-flag">🌐</div>
+        <div class="tile-value" id="tile-country">—</div>
+        <div class="tile-sub" id="tile-country-sub">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-7-11a7 7 0 1114 0c0 6.5-7 11-7 11z"/></svg>
+          City
+        </div>
+        <div class="tile-value" id="tile-city">—</div>
+        <div class="tile-sub" id="tile-city-sub">—</div>
+      </div>
+
+      <div class="tile map-tile">
+        <div id="map" role="img" aria-label="Approximate location map"></div>
+        <div class="map-overlay">
+          <div>
+            <div style="font-weight:600;font-size:0.9rem" id="map-title">—</div>
+            <div class="coords" id="map-coords">—</div>
+          </div>
+          <span class="badge">Approximate</span>
+        </div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Timezone
+        </div>
+        <div class="tile-value" id="tile-timezone">—</div>
+        <div class="tile-sub" id="tile-time-sub">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          ASN
+        </div>
+        <div class="tile-value" id="tile-asn">—</div>
+        <div class="tile-sub">Autonomous System</div>
+      </div>
+
+      <div class="tile wide-tile">
+        <div class="tile-label">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          Internet Service Provider
+        </div>
+        <div class="tile-value" id="tile-isp">—</div>
+        <div class="tile-sub" id="tile-isp-sub">—</div>
+        <div class="isp-bar"><span></span></div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Network</div>
+        <div class="tile-value" style="font-size:0.95rem" id="tile-network">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Hostname</div>
+        <div class="tile-value" style="font-size:0.8rem;font-weight:500;word-break:break-all" id="tile-hostname">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Connection</div>
+        <div class="tile-value" id="tile-connection">—</div>
+        <span class="badge green">Offline DB</span>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">IP Decimal</div>
+        <div class="tile-value" style="font-size:0.95rem;font-variant-numeric:tabular-nums" id="tile-decimal">—</div>
+      </div>
+
+      <div class="bento-section">Location details</div>
+
+      <div class="tile">
+        <div class="tile-label">Region / State</div>
+        <div class="tile-value" id="tile-region">—</div>
+        <div class="tile-sub" id="tile-district">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Postal code</div>
+        <div class="tile-value" id="tile-postal">—</div>
+        <div class="tile-sub" id="tile-accuracy">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Coordinates</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-coordinates">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Local time</div>
+        <div class="tile-value" id="tile-localtime">—</div>
+        <div class="tile-sub" id="tile-utcoffset">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Currency</div>
+        <div class="tile-value" id="tile-currency">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Calling code</div>
+        <div class="tile-value" id="tile-calling">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Capital</div>
+        <div class="tile-value" id="tile-capital">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Languages</div>
+        <div class="tile-value" style="font-size:0.85rem;font-weight:500" id="tile-languages">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Local date</div>
+        <div class="tile-value" style="font-size:0.85rem;font-weight:500" id="tile-localdate">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Day / night</div>
+        <div class="tile-value" id="tile-daynight">—</div>
+        <div class="tile-sub" id="tile-sun">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Hemisphere</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-hemisphere">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Coordinates (DMS)</div>
+        <div class="tile-value" style="font-size:0.78rem;font-weight:500;line-height:1.4" id="tile-dms">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">World region</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-world-region">—</div>
+        <div class="tile-sub" id="tile-continent-code">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Country TLD</div>
+        <div class="tile-value" id="tile-tld">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">EU / GDPR</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-gdpr">—</div>
+      </div>
+
+      <div class="bento-section">Network &amp; registry</div>
+
+      <div class="tile">
+        <div class="tile-label">IP type</div>
+        <div class="tile-value" style="font-size:0.95rem" id="tile-iptype">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">IP hex</div>
+        <div class="tile-value" style="font-size:0.85rem;font-variant-numeric:tabular-nums" id="tile-hex">—</div>
+      </div>
+
+      <div class="tile wide-tile">
+        <div class="tile-label">IP binary</div>
+        <div class="tile-value" style="font-size:0.72rem;font-weight:500;font-variant-numeric:tabular-nums;word-break:break-all;line-height:1.5" id="tile-binary">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">WHOIS server</div>
+        <div class="tile-value" style="font-size:0.85rem" id="tile-whois">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Tech contact</div>
+        <div class="tile-value" style="font-size:0.8rem;word-break:break-all" id="tile-tech">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Parent network</div>
+        <div class="tile-value" style="font-size:0.85rem" id="tile-parent">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">Registry</div>
+        <div class="tile-value" id="tile-registry">—</div>
+        <div class="tile-sub" id="tile-rdap-type">—</div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-label">RDAP network</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-rdap-name">—</div>
+      </div>
+
+      <div class="tile span-3 wide-tile">
+        <div class="tile-label">IP range (RDAP)</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-rdap-range">—</div>
+        <div class="tile-sub" id="tile-rdap-dates">—</div>
+      </div>
+
+      <div class="tile wide-tile">
+        <div class="tile-label">Network description</div>
+        <div class="tile-value" style="font-size:0.9rem;font-weight:500" id="tile-rdap-desc">—</div>
+      </div>
+
+      <div class="tile wide-tile">
+        <div class="tile-label">Abuse contact</div>
+        <div class="tile-value" style="font-size:0.85rem;word-break:break-all" id="tile-abuse">—</div>
+        <div class="tile-actions" id="tile-abuse-actions" style="display:none"></div>
+      </div>
+
+      <div class="bento-section">Map links</div>
+
+      <div class="tile wide-tile">
+        <div class="tile-label">Open in maps</div>
+        <div class="tile-value" style="font-size:0.85rem;font-weight:500" id="tile-map-links">—</div>
+      </div>
+
+      <div class="bento-section" id="connection-section" style="display:none">Your connection</div>
+
+      <div class="tile conn-only" style="display:none">
+        <div class="tile-label">Proxy chain</div>
+        <div class="tile-value" style="font-size:0.8rem;word-break:break-all" id="tile-proxy">—</div>
+      </div>
+
+      <div class="tile conn-only" style="display:none">
+        <div class="tile-label">HTTPS</div>
+        <div class="tile-value" id="tile-https">—</div>
+      </div>
+
+      <div class="tile conn-only wide-tile" style="display:none">
+        <div class="tile-label">Local network IPs</div>
+        <div class="tile-value" style="font-size:0.8rem;word-break:break-all" id="tile-local-ips">—</div>
+      </div>
+
+      <div class="bento-section" id="browser-section" style="display:none">Your browser</div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">Browser</div>
+        <div class="tile-value" id="tile-browser">—</div>
+      </div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">Operating system</div>
+        <div class="tile-value" id="tile-os">—</div>
+      </div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">Device</div>
+        <div class="tile-value" id="tile-device">—</div>
+        <div class="tile-sub" id="tile-screen">—</div>
+      </div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">Browser timezone</div>
+        <div class="tile-value" style="font-size:0.9rem" id="tile-browser-tz">—</div>
+        <div class="tile-sub" id="tile-language">—</div>
+      </div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">Network type</div>
+        <div class="tile-value" id="tile-net-type">—</div>
+        <div class="tile-sub" id="tile-downlink">—</div>
+      </div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">CPU cores</div>
+        <div class="tile-value" id="tile-cores">—</div>
+        <div class="tile-sub" id="tile-platform">—</div>
+      </div>
+
+      <div class="tile browser-only" style="display:none">
+        <div class="tile-label">Privacy &amp; display</div>
+        <div class="tile-value" style="font-size:0.85rem" id="tile-privacy">—</div>
+        <div class="tile-sub" id="tile-colorscheme">—</div>
+      </div>
+    </div>
+
+    <section class="home-explainer">
+      <h2>What is an IP address?</h2>
+      <p>An IP address is the number the internet uses to route traffic to you. Every device that talks to the network needs one, the same way a letter needs a street address. When you load this page, your request arrives carrying a public IP address, and that is the address shown above.</p>
+      <p>Most people have two at once. An <strong>IPv4</strong> address looks like <code>203.0.113.45</code> — four numbers, 32 bits in total, which caps the whole system at roughly 4.3&nbsp;billion addresses. An <strong>IPv6</strong> address looks like <code>2001:db8::42</code> — 128 bits, which is a supply so large it will not run out. IPv4 ran short years ago, so networks now run both side by side and prefer IPv6 where it is available. If the panel above shows both, your connection is dual-stack.</p>
+
+      <h3>Public versus private addresses</h3>
+      <p>The address your router shows you in its settings is usually a <em>private</em> one — something in <code>192.168.0.0/16</code>, <code>10.0.0.0/8</code>, or <code>172.16.0.0/12</code>. Those ranges are reserved for use inside a home or office network and are not routable across the internet. Your router translates between them and the single public address your ISP assigned, a process called NAT. This page can only ever see the public address. That is the one websites, game servers, and mail hosts actually see too.</p>
+
+      <h2>What your IP address reveals about you</h2>
+      <p>Less than people fear, and more than is comfortable. From a public IP address, a site can generally determine your country with high confidence, your region or city with moderate confidence, and the name of your internet provider. It can also see the ASN — the network operator's identifier in the global routing table — and whether the address belongs to a residential ISP, a mobile carrier, or a datacentre.</p>
+      <p>What it does not reveal is your name, your street address, your device, or your identity. An IP address is not a home address. Only your ISP holds the record connecting an address to a subscriber, and in most jurisdictions releasing it requires legal process.</p>
+
+      <h3>Why the city is often wrong</h3>
+      <p>Geolocation works by looking your address up in a database that maps ranges to places. Those mappings come from registry records, ISP-published data, and network measurement — not from your device. So the result reflects where your provider <em>registered</em> or routes the address, which is frequently the nearest large interconnection point rather than your town. Mobile networks are the worst offenders, because carriers route large subscriber pools through a handful of gateways. Treat city-level results as approximate and expect them to be tens of kilometres out. We publish a longer explanation in <a href="/blog/why-ip-shows-wrong-city">why your IP location shows the wrong city</a>.</p>
+
+      <h3>VPNs, proxies, and timezone mismatches</h3>
+      <p>If you are connected through a VPN, everything above describes the VPN server, not you. That is the point of a VPN. A common way sites detect one anyway is to compare the timezone your browser reports against the timezone expected for your IP address — a VPN moves the address but not your operating-system clock, so the two disagree. You can test that directly with the <a href="/tools/timezone-check">timezone check</a>, or test whether an address looks like a VPN, proxy, or hosting range with the <a href="/tools/vpn-check">VPN and proxy check</a>.</p>
+
+      <h2>How IPScope resolves lookups</h2>
+      <p>Geolocation runs entirely on this server against offline MaxMind-compatible MMDB databases — DB-IP and GeoLite2, merged so that a gap in one is filled by the other. There is no third-party geolocation API in the request path, no API key, and no per-lookup fee. Registry details such as the network range and abuse contact come from public RDAP services, and map tiles come from OpenStreetMap. Everything else is local.</p>
+      <p>That design has an honest trade-off: offline databases are a snapshot, so a range reassigned last week may still resolve to its former owner. It also means we cannot see anything about you that your request did not already carry.</p>
+
+      <h3>Other things you can do here</h3>
+      <ul>
+        <li>Look up any address, not just your own — paste an IPv4 or IPv6 into the box above, or link straight to a result like <code>/lookup/8.8.8.8</code>.</li>
+        <li>Geolocate a whole list at once with the <a href="/tools/bulk-lookup">bulk IP lookup</a>, and export the results as CSV.</li>
+        <li>Resolve the PTR record for an address with the <a href="/tools/reverse-dns">reverse DNS lookup</a>.</li>
+        <li>Find the right mailbox to report malicious traffic with the <a href="/tools/abuse-contact">abuse contact lookup</a>.</li>
+        <li>Query any of it programmatically — the <a href="/api-docs">JSON API</a> needs no key and no signup.</li>
+      </ul>
+      <p>More questions are answered in the <a href="/faq">FAQ</a>, and the <a href="/blog">blog</a> covers geolocation accuracy, VPN verification, and IP addressing in more depth.</p>
+    </section>

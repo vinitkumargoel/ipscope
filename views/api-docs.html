@@ -1,0 +1,35 @@
+    <p>Base URL: <code>https://ip.vinitk.dev</code> (or your self-hosted instance). All responses are JSON. Rate limit: 60 requests/minute per IP for bulk endpoints.</p>
+
+    <div class="api-endpoint">
+      <p><span class="api-method">GET</span><span class="api-path">/api/health</span></p>
+      <p>Health check and database status.</p>
+      <pre class="code-block">{"ok": true, "database": true}</pre>
+    </div>
+
+    <div class="api-endpoint">
+      <p><span class="api-method">GET</span><span class="api-path">/api/me</span></p>
+      <p>Returns geolocation for the requesting client's IP. Includes IPv4/IPv6 detection, proxy chain, and HTTPS status.</p>
+      <pre class="code-block">curl https://ip.vinitk.dev/api/me</pre>
+    </div>
+
+    <div class="api-endpoint">
+      <p><span class="api-method">GET</span><span class="api-path">/api/lookup/:ip</span></p>
+      <p>Lookup any public IPv4 or IPv6 address.</p>
+      <pre class="code-block">curl https://ip.vinitk.dev/api/lookup/8.8.8.8</pre>
+      <p>Response fields include: <code>ip</code>, <code>country</code>, <code>city</code>, <code>latitude</code>, <code>longitude</code>, <code>timezone</code>, <code>isp</code>, <code>asn</code>, <code>hostname</code>, <code>rdapName</code>, <code>abuseEmail</code>, <code>riskLabel</code>, and more.</p>
+    </div>
+
+    <div class="api-endpoint">
+      <p><span class="api-method">POST</span><span class="api-path">/api/bulk</span></p>
+      <p>Bulk lookup up to 20 IPs. Body: <code>{"ips": ["8.8.8.8", "1.1.1.1"]}</code></p>
+      <pre class="code-block">curl -X POST https://ip.vinitk.dev/api/bulk \
+  -H "Content-Type: application/json" \
+  -d '{"ips":["8.8.8.8","1.1.1.1"]}'</pre>
+    </div>
+
+    <h2>Error responses</h2>
+    <pre class="code-block">{"error": "Invalid IP address"}  // HTTP 400
+{"error": "Too many IPs (max 20)"}  // HTTP 400</pre>
+
+    <h2>Self-hosting</h2>
+    <p>Deploy your own instance to remove rate limits and use a custom domain. See the GitHub README.</p>

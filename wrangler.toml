@@ -1,0 +1,46 @@
+# Cloudflare Worker for IPScope.
+#
+# Serves the pre-generated dist/ tree from Static Assets at the edge and proxies
+# only the MMDB-dependent routes (/api/*, /lookup/:ip) to the Node origin.
+#
+# Before the first deploy:
+#   1. npm run build-assets   # favicon + OG image
+#   2. npm run build-index    # ASN/country index (needs data/csv/, see scripts/build-index.js)
+#   3. npm run build-static   # renders dist/
+#   4. Set ORIGIN below to the hostname the Cloudflare tunnel exposes for the
+#      Node origin. It must NOT be ip.vinitk.dev, or the Worker would call itself.
+#   5. npx wrangler deploy
+#
+# Deployment is intentionally left to the user — it needs Cloudflare credentials.
+
+name = "ipscope"
+main = "worker/index.js"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+# dist/<path>/index.html is served for both /path and /path/.
+html_handling = "auto-trailing-slash"
+# Unknown paths fall through to the branded 404 page with a 404 status.
+not_found_handling = "404-page"
+
+[vars]
+# The Node origin behind the existing tunnel. Change this to your tunnel hostname.
+# Leaving it unset makes /api/* return a clear 503 instead of failing obscurely.
+ORIGIN = "https://origin.ip.vinitk.dev"
+# Set to "off" to disable edge-resolved /api/me and always use the origin
+# (origin responses are richer: RDAP, reverse DNS, threat signals).
+EDGE_ME = "on"
+# Cloudflare Web Analytics token. Leave empty to keep the Content-Security-Policy
+# at its tightest — setting it widens script-src/connect-src to the beacon hosts.
+# Must match the CF_BEACON_TOKEN the origin renders into the HTML.
+CF_BEACON_TOKEN = ""
+
+# Route the apex/subdomain through the Worker. Uncomment once the zone is ready.
+# [[routes]]
+# pattern = "ip.vinitk.dev/*"
+# zone_name = "vinitk.dev"
+
+[observability]
+enabled = true

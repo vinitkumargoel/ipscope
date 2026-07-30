@@ -1,0 +1,47 @@
+    <h2>Start here: the badge only proves a tunnel exists</h2>
+    <p>A green "Connected" indicator proves one thing: your VPN client believes it has negotiated a tunnel to a server. It does not prove your traffic is using that tunnel, that DNS queries go through it, that IPv6 traffic is inside it, or that your browser is not volunteering information that undermines the exercise.</p>
+    <p>To know whether a VPN is working you must test from outside the client, at the five places tunnels leak. Each check is independent; passing one tells you nothing about the others.</p>
+
+    <h2>Check 1: your public IP and the network behind it</h2>
+    <p>Load a lookup page with the VPN off, note the address, ISP name and ASN, then reconnect and reload. If the IP is identical, the tunnel is not carrying your web traffic — either it is split tunnelling, the route it installed is being ignored, or the connection dropped without a kill switch.</p>
+
+    <h3>Read the operator, not just the number</h3>
+    <p>What matters is which network now announces your address. A working commercial VPN usually moves you out of a consumer ISP's autonomous system into a hosting or transit provider's. If the number changed but the ISP name and ASN are still your home provider, you were probably handed a new dynamic lease rather than an exit node, which happens routinely for reasons unrelated to VPNs (<a href="/blog/why-does-my-ip-change">why your IP keeps changing</a>).</p>
+    <p>Reverse DNS cross-checks this, because operators name ranges predictably. Consumer lines often look like <code>cpe-203-0-113-45.cable.example-isp.net</code>; hosting ranges look more like <code>203-0-113-45.static.example-hosting.net</code>, or carry no PTR record. Neither pattern is proof, since PTR records can say anything, but a residential-looking hostname after connecting is worth chasing.</p>
+    <p>Check scope too. Some clients route only the browser, or only destinations matching a rule, so if a terminal or mobile app still shows the old address the tunnel is working as configured — and the configuration is not what you assumed.</p>
+
+    <h2>Check 2: DNS, where your name lookups actually go</h2>
+    <p>DNS leaks easily because name resolution is handled separately from routing. Your system can send packets into the tunnel while still sending name lookups to the resolver it learned from DHCP on the local network. Your ISP then sees every domain you visit, in order, with timestamps, even though the traffic itself exits elsewhere.</p>
+    <p>A leak test asks your machine to resolve unique random subdomains under a domain the tester controls; the authoritative nameserver records which resolver asked, and those addresses are shown back to you.</p>
+    <p>Read the result carefully. You learn which resolver reached the authoritative server, not necessarily the one your machine is configured with, because resolvers forward to each other. If you configured <code>8.8.8.8</code>, expect an address in AS15169, Google's autonomous system, whether or not the VPN is up — deliberate configuration, not a leak. What you are looking for is your own ISP in that list while connected. If your browser uses DNS over HTTPS, the test shows that provider instead, which is correct.</p>
+
+    <h2>Check 3: IPv6, the leak most tunnels forget</h2>
+    <p>IPv4 addresses are 32 bits, IPv6 addresses are 128 bits, and the two run as separate stacks with separate routing tables. A VPN that only installs IPv4 routes leaves the IPv6 stack pointing at your ISP. Because systems generally prefer IPv6 when a destination publishes both an A and an AAAA record, traffic to dual-stacked sites — which includes many large ones — leaves outside the tunnel while your IPv4 traffic goes inside and looks fine.</p>
+    <p>Testing only IPv4 gives false confidence. Check both, and whose network each belongs to:</p>
+    <ul>
+      <li>No IPv6 address at all, because your connection has none or the VPN disabled the stack. Safe, if blunt.</li>
+      <li>An IPv6 address on the same operator and ASN as your exit. Correct for a dual-stack tunnel.</li>
+      <li>An IPv6 address still belonging to your home ISP while connected. A live leak.</li>
+    </ul>
+    <p>One clarification, because raw interface output confuses people: an address in <code>fe80::/10</code> is IPv6 link-local. It never leaves your local segment, so finding one on your adapter is not a leak. Its IPv4 equivalent is <code>169.254.0.0/16</code>, which appears when DHCP fails. For the longer version, see <a href="/blog/ipv4-vs-ipv6">IPv4 vs IPv6</a>.</p>
+
+    <h2>Check 4: WebRTC and what your browser volunteers</h2>
+    <p>WebRTC lets browsers set up direct peer-to-peer media connections. To do it, the browser gathers "ICE candidates": addresses at which your machine might be reachable, including one learned by asking an external STUN server what your public address looks like. A page can trigger this and read the list from JavaScript with no permission prompt.</p>
+    <p>This historically leaked both your LAN address and your real public address even with a VPN active. Modern browsers have narrowed it: local host candidates are typically replaced with a randomised multicast DNS hostname, so a page sees something opaque. Two candidate lines, masked and unmasked:</p>
+    <pre>candidate:1 1 udp 2122260223 8f4e2a1c-9b3d-4e77-a2f1-5c6d7e8f9a0b.local 49152 typ host
+candidate:2 1 udp 1686052607 203.0.113.45 54321 typ srflx raddr 0.0.0.0 rport 0</pre>
+    <p>The first is harmless. Read the second: <code>srflx</code> means server-reflexive, the address a STUN server observed. It should match your VPN exit. If it matches your real ISP address, WebRTC is escaping the tunnel.</p>
+    <p>Where mDNS masking is not applied you will also see private addresses, none of which identify you remotely. <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code> are the RFC 1918 private ranges; <code>100.64.0.0/10</code> is carrier-grade NAT space used by many mobile and some fixed-line providers. Seeing <code>192.168.1.24</code> reveals only that your router uses a common subnet, as <a href="/blog/public-vs-private-ip">public vs private IP addresses</a> explains.</p>
+
+    <h2>Check 5: timezone and locale consistency</h2>
+    <p>The checks above are about network plumbing. This one is about the story your browser tells, and it is easy to overlook. Your device reports a timezone to JavaScript, usually reflecting where you really are, and your exit IP maps to a timezone too. When they disagree — a Frankfurt exit address paired with a browser reporting <code>Asia/Kolkata</code> — the mismatch is trivial to detect, and the declared language list often pairs badly the same way.</p>
+    <p>Whether that matters depends on your goal. If you use a VPN so your ISP cannot see your browsing, a mismatch is irrelevant. If you use one to appear to be somewhere else, it defeats the purpose.</p>
+    <p>Do not treat the geolocated city as ground truth either way. IP geolocation is inference from registry and routing data; results can be a long way off or point at an operator's regional hub, and IPScope's own are approximate and city-level at best. An exit resolving near but not identical to the advertised city is normal, not a fault — see <a href="/blog/why-ip-shows-wrong-city">why your IP location shows the wrong city</a>.</p>
+
+    <h2>What none of these checks can prove</h2>
+    <p>Passing all five means your traffic, name resolution and browser signals are consistent with the tunnel you configured. It does not mean you are anonymous. No external test can see what the VPN operator logs. None of this covers fingerprinting, cookies or accounts you are logged into, all of which identify you regardless of exit address. These tests measure only the browser they run in, so anything with its own network stack or proxy settings needs checking separately. And they cannot catch a leak that happens only during reconnection, when a tunnel drops and traffic falls back to the default route for a few seconds; testing that means deliberately interrupting the connection and re-running the checks at once.</p>
+    <p>Detection cuts both ways. A site classifying your exit as a VPN is pattern matching on operator names, ASNs and reverse DNS, which yields false positives and false negatives alike. It is a heuristic, not a fact — worth remembering when a service blocks you and when one fails to notice you.</p>
+
+    <h2>What to do next</h2>
+    <p>Run the checks in order, not all at once, so you know which one failed. Start with the <a href="/tools/vpn-check">VPN and proxy check</a> to see how your exit address is classified, along with the ASN, operator name and reverse DNS behind that verdict. Then run the <a href="/tools/timezone-check">timezone consistency check</a>, which catches the mismatch described above.</p>
+    <p>If a hostname looks residential when it should not, the <a href="/tools/reverse-dns">reverse DNS lookup</a> shows the raw PTR data so you can judge the naming yourself. To see everything known about your connection, IPv4 and IPv6 alike, start from the <a href="/">homepage</a>. For the wider question of which fields leak and what an observer can assemble, <a href="/blog/how-to-check-ip-leak">how to check if your IP is leaking</a> works through it methodically.</p>

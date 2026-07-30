@@ -1,0 +1,78 @@
+    <h2>The short answer</h2>
+    <p>IPv4 addresses are 32 bits and written as four decimal numbers, like <code>203.0.113.45</code>; IPv6 addresses are 128 bits and written as groups of hexadecimal digits, like <code>2001:db8:85a3::8a2e:370:7334</code>. Almost everything else people list as a difference follows from that change in size: there were never enough IPv4 addresses, so the IPv4 internet grew a thick layer of address translation and sharing, while IPv6 has room for every device on a network to hold a globally routable address of its own.</p>
+    <p>That is the part that actually affects you: on IPv4 your address is probably shared and rewritten upstream, and on IPv6 it probably is not.</p>
+
+    <h2>Reading the two address formats</h2>
+    <p>An IPv4 address is four octets, each 0 to 255, separated by dots. Thirty-two bits gives 4,294,967,296 possible values, and a large slice of those are reserved and unusable on the public internet. An IPv6 address is eight groups of four hexadecimal digits separated by colons. In full:</p>
+    <pre class="code-block">2001:0db8:85a3:0000:0000:8a2e:0370:7334</pre>
+    <p>Nobody writes them out that way. The canonical form drops leading zeros in each group and replaces the longest run of all-zero groups with <code>::</code>:</p>
+    <pre class="code-block">2001:db8:85a3::8a2e:370:7334</pre>
+
+    <h3>Rules worth knowing</h3>
+    <ul>
+      <li><code>::</code> may appear only once, because otherwise you could not tell how many zero groups each one stood for. Hex digits are conventionally lowercase.</li>
+      <li>In a URL an IPv6 address needs square brackets: <code>http://[2001:db8:85a3::8a2e:370:7334]:8080/</code>. Hand-written config parsers often get this wrong.</li>
+      <li><code>2001:db8::/32</code> is the reserved documentation range, which is why examples here use it, alongside <code>203.0.113.0/24</code>.</li>
+    </ul>
+
+    <h2>Address space, and what it changed in practice</h2>
+    <p>The point of 128 bits is not a bigger pool to hand out one address at a time. It is that networks get blocks large enough that subnetting stops being rationing. A single IPv6 subnet is conventionally a <code>/64</code>, and a residential connection is often delegated more than one subnet so the customer can split it internally, though the prefix size varies by provider. Compare IPv4, where a home connection gets one public address, or increasingly none of its own.</p>
+
+    <h2>NAT: the biggest practical difference</h2>
+    <p>Because IPv4 addresses are scarce, almost every IPv4 network hides many devices behind one public address using Network Address Translation. Internally, devices use the private ranges from RFC 1918:</p>
+    <ul>
+      <li><code>10.0.0.0/8</code></li>
+      <li><code>172.16.0.0/12</code></li>
+      <li><code>192.168.0.0/16</code></li>
+    </ul>
+    <p>Your router rewrites the source address of outbound packets to its own public address and keeps a table so it can rewrite the replies back. That is why your laptop reports something like <code>192.168.1.24</code> while a website sees a different address entirely. Longer version: <a href="/blog/public-vs-private-ip">public vs private IP addresses</a>.</p>
+
+    <h3>Carrier-grade NAT makes it worse</h3>
+    <p>Many mobile carriers, and some fixed-line providers, no longer give each subscriber even one public IPv4 address. They run a second layer of translation and assign customers addresses from <code>100.64.0.0/10</code>, the range reserved for carrier-grade NAT. Under CGNAT your public address is shared with other subscribers, inbound connections need the carrier's cooperation, and a geolocation lookup describes the carrier's translation equipment rather than your area.</p>
+    <p>A practical wrinkle: <code>100.64.0.0/10</code> is not an RFC 1918 range, so code that only tests for the three private prefixes will treat a CGNAT address as an ordinary public one. If you are deciding whether an address is routable, test for the CGNAT range explicitly.</p>
+
+    <h3>IPv6 mostly does away with this</h3>
+    <p>With IPv6 there is no need to share, so hosts generally carry a globally unique address and translation is not part of the normal path. IPv6 still has non-global address types, and they show up constantly:</p>
+    <ul>
+      <li><code>fe80::/10</code> &ndash; link-local, auto-configured on every interface, valid only on that segment. The IPv4 counterpart is <code>169.254.0.0/16</code>.</li>
+      <li><code>fc00::/7</code> &ndash; unique local addresses, roughly the IPv6 analogue of RFC 1918 space.</li>
+      <li><code>::1</code> &ndash; loopback, where IPv4 uses the whole of <code>127.0.0.0/8</code>.</li>
+      <li><code>ff00::/8</code> &ndash; multicast. IPv6 has no broadcast address; the jobs IPv4 broadcast did, address resolution included, use multicast.</li>
+    </ul>
+    <p>Losing NAT cuts both ways. Reaching a specific machine from outside is straightforward again, which helps if you host anything and hurts if you were quietly relying on NAT as a firewall. It was never a firewall; it only behaved a little like one.</p>
+
+    <h2>Privacy extensions, or why your IPv6 address keeps moving</h2>
+    <p>An IPv6 host usually configures its own address by taking the prefix advertised by the router and generating the remaining 64 bits itself. Early implementations derived those bits from the interface's MAC address, so the same hardware identifier followed you onto every network you joined: a tracking handle attached to the device, not the connection.</p>
+    <p>Temporary addresses, specified in RFC 4941 and updated by RFC 8981, fix this by generating the host portion randomly and rotating it periodically. Current operating systems generally do this by default, so one machine typically holds several IPv6 addresses at once: a link-local one, a stable one for inbound connections, and temporary ones used as the source for outbound traffic.</p>
+    <p>That matters when you correlate logs. Two requests from one device an hour apart can carry different IPv6 sources inside the same <code>/64</code>, with nothing suspicious happening; aggregate by prefix, not full address. Related: <a href="/blog/why-does-my-ip-change">why does my IP address keep changing?</a></p>
+
+    <h2>Why you usually have both at once</h2>
+    <p>There was never a flag day. IPv6 is not backward compatible with IPv4, so an IPv6-only host cannot talk directly to an IPv4-only host. The transition strategy has been to run both stacks side by side and let applications choose. That is "dual stack", and many consumer connections now provide it.</p>
+    <p>When a dual-stack client looks up a hostname it may get back both an A record (IPv4) and an AAAA record (IPv6). The Happy Eyeballs algorithm in RFC 8305 has it start attempts over both and use whichever completes first, with a bias towards IPv6. So the protocol a request arrives over depends on DNS, on conditions at that moment, and on the client's preferences. It is not a fixed property of your connection.</p>
+    <p>Two consequences that regularly surprise people:</p>
+    <ol>
+      <li>Your IPv4 and IPv6 addresses can geolocate differently. They may come from different blocks, be registered against different records, and be handled by different parts of the ISP's network. A mismatch is normal.</li>
+      <li>A VPN or proxy that only handles IPv4 will leak your real IPv6 address the moment a site publishes an AAAA record. This is a common way for a tunnel to fail silently. Checking both stacks separately is the only way to be sure; see <a href="/blog/is-my-vpn-working">is my VPN working?</a></li>
+    </ol>
+
+    <h2>What changes in logs and lookups</h2>
+    <p>Server-side, three things need planning for.</p>
+    <p><strong>Storage and comparison.</strong> An IPv4 address has one obvious text form; an IPv6 address has many valid ones, so string equality is unsafe. Normalise to canonical form, or store the binary value, before you compare or index.</p>
+    <p><strong>Mapped addresses.</strong> A dual-stack socket often reports IPv4 clients in IPv4-mapped IPv6 form, from <code>::ffff:0:0/96</code>. A log from such a server can contain all three of these, where the first two are the same client:</p>
+    <pre class="code-block">203.0.113.45          - GET /api/me
+::ffff:203.0.113.45   - GET /api/me
+2001:db8:85a3::8a2e:370:7334 - GET /api/me</pre>
+    <p>Strip the <code>::ffff:</code> prefix before treating an address as IPv6, or you will double-count.</p>
+    <p><strong>Reverse DNS.</strong> IPv4 reverses the dotted quad under <code>in-addr.arpa</code>, so <code>203.0.113.45</code> becomes <code>45.113.0.203.in-addr.arpa</code>. IPv6 uses one hex digit per label under <code>ip6.arpa</code>, so <code>2001:db8::1</code> becomes:</p>
+    <pre class="code-block">1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa</pre>
+    <p>IPv6 reverse records are also less consistently populated, so a missing PTR means less on IPv6 than on IPv4.</p>
+    <p>What does <em>not</em> change is routing and ownership. Both protocols are carried by the same autonomous systems, and an operator's IPv4 and IPv6 blocks usually sit behind the same ASN; Google's traffic, for example, originates from AS15169 in both. See <a href="/blog/what-is-an-asn">what is an ASN?</a> if that is unfamiliar.</p>
+
+    <h2>What to do next</h2>
+    <p>Start on the <a href="/">IPScope homepage</a>, which detects your IPv4 and IPv6 addresses where both are available and shows the version, address type, ISP and network for each. That is the quickest way to see whether your connection is dual stack and whether the two stacks agree about where you are. From there:</p>
+    <ul>
+      <li><a href="/tools/vpn-check">VPN and proxy check</a> &ndash; for catching the IPv4-only-tunnel problem described above.</li>
+      <li><a href="/tools/reverse-dns">Reverse DNS lookup</a> &ndash; see how <code>in-addr.arpa</code> and <code>ip6.arpa</code> behave on real addresses.</li>
+      <li><a href="/tools/bulk-lookup">Bulk lookup</a> &ndash; paste a mixed list of IPv4 and IPv6 addresses from a log file and resolve them in one pass.</li>
+    </ul>
+    <p>One caveat throughout: the geolocation IPScope reports comes from address registration and routing data, which is approximate by nature. City level is the realistic ceiling, and it is often wrong at that level for both protocols. It tells you where an address is registered and routed, not where a person is.</p>

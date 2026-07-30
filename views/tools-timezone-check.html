@@ -1,0 +1,131 @@
+    <p class="page-meta">Compares the timezone your browser reports against the timezone of the IP address the request came from. Runs on this page — the browser side is read locally, the IP side comes from this server's offline geolocation databases.</p>
+
+    <div class="error-banner" id="tz-error" role="alert"></div>
+
+    <div class="tz-form">
+      <div class="search-box">
+        <input type="text" id="tz-ip-input" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Test another IP (e.g. 1.1.1.1)" aria-label="IP address to test">
+        <button type="button" id="tz-check-btn">Check</button>
+      </div>
+      <button type="button" class="action-btn" id="tz-me-btn">Use my own IP</button>
+      <button type="button" class="action-btn" id="tz-copy-btn">Copy result</button>
+    </div>
+
+    <div id="tz-results" aria-live="polite">
+      <div class="tile tz-verdict unknown" id="tz-verdict-tile">
+        <div class="tile-label">Timezone consistency</div>
+        <div class="tile-value lg" id="tz-verdict">Checking…</div>
+        <div class="tile-sub" id="tz-verdict-sub">Reading your browser timezone and looking up your IP.</div>
+      </div>
+
+      <div class="tz-compare">
+        <div class="tile">
+          <div class="tile-label">Your browser says</div>
+          <div class="tile-value" id="tz-browser-zone"><div class="skeleton"></div></div>
+          <div class="tz-rows">
+            <div class="tz-row"><span>UTC offset</span><span id="tz-browser-offset">—</span></div>
+            <div class="tz-row"><span>Clock now</span><span id="tz-browser-time">—</span></div>
+            <div class="tz-row"><span>Source</span><span>Operating system</span></div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-label">Your IP says</div>
+          <div class="tile-value" id="tz-ip-zone"><div class="skeleton"></div></div>
+          <div class="tz-rows">
+            <div class="tz-row"><span>UTC offset</span><span id="tz-ip-offset">—</span></div>
+            <div class="tz-row"><span>Clock now</span><span id="tz-ip-time">—</span></div>
+            <div class="tz-row"><span>Address</span><span id="tz-ip-address">—</span></div>
+            <div class="tz-row"><span>Location</span><span id="tz-ip-location">—</span></div>
+            <div class="tz-row"><span>Network</span><span id="tz-ip-network">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tile" id="tz-detail-tile">
+        <div class="tile-label">Offset difference</div>
+        <div class="tile-value" id="tz-delta">—</div>
+        <div class="tile-sub" id="tz-delta-sub">The gap between the two clocks, in hours.</div>
+        <div class="tile-actions">
+          <a class="tile-action-btn" href="/tools/vpn-check">Run the VPN &amp; proxy check</a>
+          <a class="tile-action-btn" href="/tools/reverse-dns">Reverse DNS for this IP</a>
+        </div>
+      </div>
+    </div>
+
+    <h2>What this test actually measures</h2>
+    <p>There are two completely separate places a website can learn "what time it is where you are", and they almost never come from the same source.</p>
+    <p>The first is your <strong>browser timezone</strong>. Any page can call a JavaScript API and get back an IANA zone name such as <code>Europe/London</code> or <code>Asia/Kolkata</code>, plus the current offset from UTC in minutes. That value comes from your operating system's date and time settings. Nothing on the network touches it. If you set your laptop clock to Tokyo, every website you visit believes you are in Tokyo.</p>
+    <p>The second is your <strong>IP timezone</strong>. When a request reaches this server, the server looks the source IP up in a geolocation database and reads off the timezone recorded for that block of addresses. That value comes from whoever registered and routes the address range — your ISP, your mobile carrier, or the hosting company running the VPN server you are connected to.</p>
+    <p>The test above puts the two side by side and subtracts one offset from the other. If the difference is zero, the two stories agree. If it is not zero, they disagree, and the size of the gap is often a strong hint about what is going on.</p>
+
+    <h2>Why a timezone mismatch gets you flagged</h2>
+    <p>A VPN or proxy changes exactly one thing: the IP address the server sees. It does not, and generally cannot, change your operating system clock. That asymmetry is what makes this check so widely used.</p>
+    <p>Consider someone in India who connects to a VPN endpoint in Frankfurt. Their IP now geolocates to Germany, so the server-side timezone reads <code>Europe/Berlin</code>. Their laptop clock is still set to Indian Standard Time, so the browser reports <code>Asia/Kolkata</code>. The offsets differ by roughly three and a half hours. No sophisticated fingerprinting is needed to notice that — a few lines of JavaScript and one database lookup are enough.</p>
+    <p>Because the check is cheap to run and cheap to reason about, it turns up in a lot of places: streaming platforms enforcing regional licensing, banks and payment processors scoring a transaction for fraud risk, ticketing and sneaker sites blocking resellers, online exams verifying that a candidate is where they claim to be, and account-security systems deciding whether a login looks unusual. In most of these systems a mismatch is not an automatic block. It is a weighted signal that gets added to others, such as whether the IP belongs to a hosting provider rather than a residential ISP.</p>
+    <p>A half-hour or forty-five-minute offset is particularly revealing, because relatively few zones use them. India, Iran, parts of Australia, Nepal and Newfoundland are among the exceptions. A browser reporting a <code>+05:30</code> offset from an IP that geolocates to a whole-hour European zone narrows the possibilities considerably.</p>
+
+    <h2>Innocent reasons the two disagree</h2>
+    <p>A mismatch is not proof of anything. Plenty of ordinary situations produce one, and it is worth being clear about them before treating the result as evidence.</p>
+    <ul>
+      <li><strong>You are travelling.</strong> Laptops do not always pick up the local timezone, especially if automatic time setting is switched off or the machine has been asleep. Someone flying from London to Singapore may keep a British clock for days.</li>
+      <li><strong>Your system clock is simply wrong.</strong> Timezone is set manually more often than people realise, and a machine restored from a backup or reimaged in another office can carry the old setting for a long time.</li>
+      <li><strong>Mobile networks route oddly.</strong> Carriers frequently hand out addresses from a pool registered to a gateway in a different city or even a different country from where the handset actually is. Roaming makes this worse.</li>
+      <li><strong>Corporate networks backhaul traffic.</strong> A company may route all internet traffic through a single egress point at head office. Staff in a branch office appear to be wherever that egress lives.</li>
+      <li><strong>The browser is running in a datacentre.</strong> Remote desktops, cloud browsers, CI runners and headless automation all have IPs registered to hosting providers, and their container clocks are very often left on UTC.</li>
+      <li><strong>The geolocation database is stale or coarse.</strong> Address blocks get reassigned between regions, and some records only ever resolve to a country centroid. The timezone attached to an IP is an estimate, not a measurement.</li>
+      <li><strong>Privacy tooling is deliberately lying.</strong> Some hardened browsers and extensions report UTC as the browser timezone on purpose, to reduce fingerprinting. That produces a mismatch for nearly everyone who uses them.</li>
+    </ul>
+
+    <h2>How to fix a mismatch</h2>
+    <p>If you want the two values to agree, the fix is almost always on the operating system side rather than the browser side.</p>
+    <ol>
+      <li><strong>Decide which story you want to tell.</strong> If your goal is for both values to reflect where you physically are, turn the VPN off and set the system clock to your real local zone. If your goal is for both to match the VPN exit, change the system timezone to the exit's zone.</li>
+      <li><strong>Set the system timezone manually.</strong> On Windows this is Settings, Time &amp; language, Date &amp; time. On macOS it is System Settings, General, Date &amp; Time. On Linux, <code>timedatectl set-timezone Europe/Berlin</code>. Automatic timezone detection often relies on Wi-Fi and location services, which a VPN does not influence, so manual is more predictable.</li>
+      <li><strong>Restart the browser.</strong> Some browsers cache the resolved timezone for the lifetime of the process and will keep reporting the old zone until relaunched.</li>
+      <li><strong>Check whether an extension is overriding it.</strong> Anti-fingerprinting and timezone-spoofing extensions take precedence over the system setting and are a common cause of a mismatch that survives every other fix.</li>
+      <li><strong>Re-run this test.</strong> Reload the page and confirm the verdict tile reads MATCH.</li>
+    </ol>
+    <p>Bear in mind that matching the two values only removes one signal. If the IP still belongs to a well-known hosting range, that is visible independently — the <a href="/tools/vpn-check">VPN and proxy check</a> looks at exactly those characteristics, and <a href="/tools/reverse-dns">reverse DNS</a> often names the hosting provider outright.</p>
+
+    <h2>Limitations of this check</h2>
+    <p>The browser side of this test is reliable in the sense that it accurately reports what your browser claims. It says nothing about whether that claim is true. The IP side is the weaker half: timezone is derived from a geolocation record, and IP geolocation is approximate. City-level results can be tens of kilometres out, and country-level errors happen with reassigned blocks, satellite links, and carrier-grade NAT.</p>
+    <p>Two zones can also share an offset while being different places. <code>Europe/London</code> and <code>Africa/Abidjan</code> are both UTC+0 in winter but not in summer, so the same pair of zones can match in January and mismatch in July. The tool reports both the zone names and the numeric offsets so you can see which kind of agreement you have.</p>
+    <p>Finally, this page tests one address at a time against your own browser. If you need to profile many addresses, the <a href="/tools/bulk-lookup">bulk lookup tool</a> returns timezone and offset for a list of IPs, and the same fields are available programmatically — see the <a href="/api-docs">API documentation</a> for <code>/api/me</code> and <code>/api/lookup/:ip</code>.</p>
+
+    <h2>Common questions</h2>
+
+    <details class="faq-item" open>
+      <summary>What is timezone dissonance?</summary>
+      <div class="faq-body"><p>It is the condition where the timezone reported by a visitor's browser does not match the timezone associated with their IP address. The term is mostly used in fraud detection and bot-mitigation work, where the gap between the two values is treated as a risk signal rather than a fact about location.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Does a mismatch prove I am using a VPN?</summary>
+      <div class="faq-body"><p>No. It is consistent with VPN use, but travelling with a laptop still set to your home timezone produces the same result, as does a manually misconfigured clock or a mobile IP registered in another city. Treat it as one input among several. The <a href="/tools/vpn-check">VPN and proxy check</a> looks at independent evidence such as whether the address sits in a hosting range.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can I hide the mismatch by changing my browser timezone?</summary>
+      <div class="faq-body"><p>Changing the operating system timezone to match your VPN exit will make this particular test read MATCH. It does not hide anything else: the address itself, its reverse DNS, and the network it belongs to are all still visible, and a browser that reports a zone inconsistent with its own locale and language settings can look odder than the original mismatch.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Why does my IP timezone look wrong even without a VPN?</summary>
+      <div class="faq-body"><p>Because it comes from a database record about your ISP's address block, not from your device. Mobile carriers and large ISPs often route traffic through a hub in another city, and reassigned address ranges can carry outdated entries for months. See <a href="/faq">the general FAQ</a> for more on geolocation accuracy.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Is my timezone stored when I run this test?</summary>
+      <div class="faq-body"><p>No. The browser timezone is read in your browser and compared in your browser. The server only performs the geolocation lookup for the address you tested, exactly as the <a href="/">homepage lookup</a> does, and it does not receive your browser timezone value.</p></div>
+    </details>
+
+    <h2>Related tools</h2>
+    <ul>
+      <li><a href="/">What is my IP</a> — full geolocation breakdown for your current connection.</li>
+      <li><a href="/tools/vpn-check">VPN and proxy check</a> — whether an address looks like a VPN, proxy, Tor exit or hosting range.</li>
+      <li><a href="/tools/reverse-dns">Reverse DNS lookup</a> — the PTR hostname behind an address, which often names the provider.</li>
+      <li><a href="/tools/abuse-contact">Abuse contact lookup</a> — where to report activity from an address.</li>
+      <li><a href="/tools/bulk-lookup">Bulk lookup</a> — timezone and offset for many addresses at once.</li>
+      <li><a href="/api-docs">API documentation</a> — the <code>timezone</code>, <code>utcOffset</code> and <code>localTime</code> fields used by this page.</li>
+    </ul>

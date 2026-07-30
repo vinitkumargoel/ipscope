@@ -13,8 +13,22 @@ if (!existsSync(leafletSrc)) {
 }
 
 mkdirSync(leafletDest, { recursive: true });
-for (const file of ['leaflet.js', 'leaflet.css', 'leaflet.js.map']) {
+
+// The source map is deliberately not copied — it is a development artefact and
+// server.js refuses to serve `.map` anyway.
+for (const file of ['leaflet.js', 'leaflet.css']) {
   const src = join(leafletSrc, file);
   if (existsSync(src)) cpSync(src, join(leafletDest, file));
 }
+
+// leaflet.css resolves the default marker/shadow icons relative to itself, so
+// images/ must ship too. Without it L.marker() renders nothing and the page
+// throws 404s for marker-icon.png.
+const imagesSrc = join(leafletSrc, 'images');
+if (existsSync(imagesSrc)) {
+  cpSync(imagesSrc, join(leafletDest, 'images'), { recursive: true });
+} else {
+  console.warn('leaflet dist/images missing — map markers will not render');
+}
+
 console.log('Vendored leaflet → public/vendor/leaflet');

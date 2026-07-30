@@ -5,7 +5,7 @@ import {
   getLookupIpFromPath, updateShareUrl, printReport, setLastLookup, getLastLookup,
   isValidIpClient,
 } from './features.js';
-import { renderSiteFooter, initCookieConsent, initTheme, toggleTheme } from './layout.js';
+import { initCookieConsent, toggleTheme } from './layout.js';
 import { escapeHtml } from './escape.js';
 
 const FLAG = {
@@ -24,9 +24,9 @@ let activeClockTz = null;
 
 const $ = (id) => document.getElementById(id);
 
-initTheme();
+// Theme is applied pre-paint by /js/theme-init.js; the footer is server-rendered.
 initCookieConsent();
-$('site-footer-mount').innerHTML = renderSiteFooter();
+prefetchLeafletWhenVisible();
 
 document.querySelector('[data-theme-toggle]')?.addEventListener('click', toggleTheme);
 
@@ -63,8 +63,74 @@ function isPrivateIp(ip) {
   return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
 }
 
-function initMap(lat, lng, label) {
+/**
+ * Leaflet is ~150 KB of CSS + JS for a tile map that sits below the fold, so it is
+ * fetched on demand instead of blocking first paint. The promise is cached, so
+ * concurrent callers share one download.
+ */
+let leafletPromise = null;
+
+function loadLeaflet() {
+  if (leafletPromise) return leafletPromise;
+
+  leafletPromise = new Promise((resolve, reject) => {
+    if (window.L) return resolve(window.L);
+
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = '/vendor/leaflet/leaflet.css';
+    document.head.append(css);
+
+    const script = document.createElement('script');
+    script.src = '/vendor/leaflet/leaflet.js';
+    script.async = true;
+    script.addEventListener('load', () => {
+      if (window.L) resolve(window.L);
+      else reject(new Error('Map library loaded but did not initialise'));
+    });
+    script.addEventListener('error', () => {
+      leafletPromise = null; // allow a retry on the next lookup
+      reject(new Error('Could not load the map library'));
+    });
+    document.head.append(script);
+  });
+
+  return leafletPromise;
+}
+
+// Warm the download as soon as the map tile approaches the viewport, so the map is
+// usually ready by the time data arrives.
+function prefetchLeafletWhenVisible() {
+  const el = $('map');
+  if (!el || !('IntersectionObserver' in window)) return;
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        io.disconnect();
+        loadLeaflet().catch(() => { /* surfaced when initMap actually runs */ });
+      }
+    },
+    { rootMargin: '400px' },
+  );
+  io.observe(el);
+}
+
+async function initMap(lat, lng, label) {
   if (!lat || !lng) return;
+
+  setText('map-title', label);
+  setText('map-coords', `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'} · ${Math.abs(lng).toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`);
+
+  let L;
+  try {
+    L = await loadLeaflet();
+  } catch (err) {
+    // The coordinates are already shown above, so degrade to a text-only result
+    // rather than failing the whole lookup.
+    console.warn(err.message);
+    return;
+  }
 
   if (!map) {
     map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView([lat, lng], 11);
@@ -81,9 +147,6 @@ function initMap(lat, lng, label) {
 
   marker = L.marker([lat, lng]).addTo(map);
   circle = L.circle([lat, lng], { radius: 8000, color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.12, weight: 2 }).addTo(map);
-
-  setText('map-title', label);
-  setText('map-coords', `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'} · ${Math.abs(lng).toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`);
 }
 
 function utcOffsetNow(tz) {

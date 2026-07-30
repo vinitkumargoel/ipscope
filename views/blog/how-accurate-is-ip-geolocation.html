@@ -1,0 +1,86 @@
+    <p>IP geolocation is close to dependable at country level, unreliable at city level, and worthless at street level. That gap is not a quality problem that better databases will eventually solve — it comes from the fact that an IP address records which network you are attached to, not where you are standing.</p>
+
+    <p>Everything else worth knowing follows from that one distinction. Below is where the data comes from, which layers of it are solid, which are guesses, and the situations where you should ignore the answer entirely.</p>
+
+    <h2>Where the data actually comes from</h2>
+
+    <p>There is no single authority that maps addresses to places. Every geolocation dataset is a blend of several independent sources, each with a different failure mode. Understanding which source produced an answer tells you how much to trust it.</p>
+
+    <h3>Registry allocations</h3>
+
+    <p>Addresses are handed out by five regional internet registries, which in turn allocate blocks to ISPs and organisations. Those records are public and reasonably well maintained. They say which organisation holds a block and which registry region it belongs to. This is the layer that makes country-level lookups work.</p>
+
+    <p>What registry data does not contain is where the addresses are used. A single ISP can hold one block and deploy it across an entire country.</p>
+
+    <h3>Routing announcements</h3>
+
+    <p>Networks announce to each other which address ranges they can reach using BGP, and each participating network is identified by an autonomous system number. Those announcements show who is carrying traffic for a block and which upstream networks they connect through. That tells you a lot about the <em>kind</em> of network — consumer broadband, mobile carrier, hosting provider, university — and only indirectly about geography. If you have not met ASNs before, <a href="/blog/what-is-an-asn">this explainer covers them</a>.</p>
+
+    <h3>Latency measurement</h3>
+
+    <p>Measurement networks ping addresses from many known locations and infer distance from round-trip time. Physics puts a floor on how fast a packet can travel, so a very low latency from a known city is real evidence of proximity. The technique is useful, and also easily distorted: congestion, queuing, routing that takes a long detour, and traffic engineering all inflate latency and push the estimate outwards. It narrows a region; it does not pin a point.</p>
+
+    <h3>Hostname conventions</h3>
+
+    <p>Many ISPs encode information into reverse DNS for customer addresses. Patterns like <code>cpe-198-51-100-7.ams1.example-isp.net</code> or <code>dsl-static-198-51-100-7.blr.example-isp.net</code> contain a site code that often corresponds to an exchange, a point of presence, or an airport code. It is a real signal and a fragile one — the codes are undocumented, inconsistent between providers, and frequently left over from a previous deployment. You can inspect this yourself with the <a href="/tools/reverse-dns">reverse DNS lookup</a>.</p>
+
+    <h3>Operator-supplied data</h3>
+
+    <p>The most accurate source is the network operator telling you directly. Some publish geofeed files, a simple machine-readable list mapping their own prefixes to countries, regions and cities, standardised in RFC 8805. When an operator maintains one properly, the data is excellent. Coverage is patchy, and nothing stops a stale feed from being wrong for years.</p>
+
+    <h2>Why country-level accuracy holds up</h2>
+
+    <p>Country is the one field that usually deserves your confidence, for three reasons that reinforce each other.</p>
+
+    <p>First, regulation. Networks are licensed and taxed nationally, so operators generally deploy address space inside the country where it was allocated. Second, corroboration. Registry region, ASN ownership, routing paths, latency and hostname hints tend to agree on the country even when they disagree about everything finer. Third, the unit is large. Being off by a few tens of kilometres almost never changes the country, whereas it very often changes the city.</p>
+
+    <p>Country still breaks in specific cases: small countries with short land borders, territories that share an operator with a neighbour, satellite and in-flight connectivity, and multinational carriers that route several countries through one egress. Treat country as strong, not absolute.</p>
+
+    <h2>Why city-level accuracy does not hold up</h2>
+
+    <p>City accuracy fails because the thing being located is a block of addresses, and blocks are not organised geographically.</p>
+
+    <ul>
+      <li><strong>Aggregation.</strong> ISPs assign addresses from regional pools, not per-town ranges. Everyone in the pool inherits the pool's label, which is usually the nearest large city or the operator's own base.</li>
+      <li><strong>Carrier gateways.</strong> Mobile networks push subscriber traffic through a small number of exit points. Your public address belongs to the gateway. Two people hundreds of kilometres apart can produce identical coordinates.</li>
+      <li><strong>Centroid fallbacks.</strong> When a database has no city, it often returns a representative point for the region or country. That is why lookups sometimes land in a field or a lake.</li>
+      <li><strong>Reassignment lag.</strong> Blocks are sold, leased, transferred and redeployed. Databases update on their own schedule, so a block can carry an obsolete city label long after the traffic moved.</li>
+      <li><strong>Tunnels.</strong> A VPN, a proxy, or a corporate egress replaces your location with the exit node's. That is the intended behaviour, and the exit node's own city label may also be wrong.</li>
+    </ul>
+
+    <p>The result is that city is best read as a hint with a wide and unstated error margin. IPScope reports its accuracy as city level, roughly tens of kilometres, and that is an honest description of the whole category rather than a limitation specific to this site. <a href="/blog/why-ip-shows-wrong-city">Why your IP shows the wrong city</a> works through the individual causes in more detail.</p>
+
+    <h2>A worked example</h2>
+
+    <p>Suppose an access log gives you this and you want to know where the request came from.</p>
+
+    <pre>203.0.113.19 - - [04/Feb/2026:18:22:41 +0000] "POST /api/login HTTP/1.1" 401 33</pre>
+
+    <p>A sensible order of checks:</p>
+
+    <ol>
+      <li><strong>Is it globally routable?</strong> If the address sits in <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> or <code>192.168.0.0/16</code>, it is a private address that exists on millions of networks and has no location at all. <code>100.64.0.0/10</code> is the shared carrier NAT range, and <code>169.254.0.0/16</code> in IPv4 or <code>fe80::/10</code> in IPv6 are link-local. Any of those means stop; see <a href="/blog/public-vs-private-ip">public versus private addressing</a>.</li>
+      <li><strong>Who owns the network?</strong> This is the highest-value field. A consumer ISP suggests a real subscriber, subject to hub aggregation. A hosting or cloud ASN suggests automation or a tunnel — <code>AS15169</code>, for instance, is Google's autonomous system, and a login attempt from a large cloud ASN is not a person on their home broadband.</li>
+      <li><strong>Does the timezone agree with the behaviour?</strong> Comparing the timezone attached to the address against the client's own reported timezone is the cheapest inconsistency check there is.</li>
+      <li><strong>Only then look at the city.</strong> And treat it as one weak signal among several, not as a fact.</li>
+    </ol>
+
+    <h2>When you should not rely on it at all</h2>
+
+    <p>There are cases where the right decision is to not use IP geolocation, rather than to use it cautiously.</p>
+
+    <ul>
+      <li><strong>Anything with a consequence for an individual.</strong> Blocking an account, accusing someone of fraud, or identifying a person by location. The error margin is far larger than the decision deserves, and shared addresses mean many people sit behind one result.</li>
+      <li><strong>Legal or compliance boundaries below country level.</strong> Tax jurisdictions, regional licensing, state-level rules. City and region fields are not evidence.</li>
+      <li><strong>Emergency or safety-critical dispatch.</strong> An IP-derived location can be off by enough to send help to the wrong address entirely. Use a location the device reports directly.</li>
+      <li><strong>Anycast addresses.</strong> A single anycast address is announced from many sites simultaneously, so no single location is correct.</li>
+      <li><strong>Anything where asking is possible.</strong> Browser geolocation, a postcode field, or an account setting beats an IP guess every time.</li>
+    </ul>
+
+    <p>Where it does work well: rough audience statistics, choosing a default language or currency, picking a nearby server, spotting that a session has jumped continents, and flagging traffic that comes from datacentre space when it should come from consumer connections.</p>
+
+    <h2>What to do next</h2>
+
+    <p>Run a <a href="/">lookup on your own address</a> and read it in the order above — network and ASN first, country second, city last. That habit alone prevents most of the mistakes people make with this data.</p>
+
+    <p>Then use the <a href="/tools/timezone-check">timezone check</a> to see whether your browser and your IP agree, and the <a href="/tools/vpn-check">VPN and proxy check</a> to see whether your address belongs to a consumer ISP or to hosting infrastructure. The <a href="/faq">FAQ</a> answers the narrower questions about what individual fields mean.</p>

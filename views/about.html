@@ -1,0 +1,24 @@
+    <h2>What is IPScope?</h2>
+    <p>IPScope is a web application that shows your public IP address and geolocation details — country, city, ISP, ASN, timezone, coordinates, and more. Unlike cloud geolocation APIs, lookups run entirely on your server using offline MaxMind-compatible MMDB databases.</p>
+
+    <h2>Why we built it</h2>
+    <ul>
+      <li><strong>Privacy:</strong> No third-party API calls for core geolocation.</li>
+      <li><strong>Cost:</strong> No per-request API fees after database download.</li>
+      <li><strong>Speed:</strong> Local MMDB lookups are sub-millisecond.</li>
+      <li><strong>Completeness:</strong> IPv4, IPv6, RDAP registry data, reverse DNS, and browser fingerprint tiles.</li>
+    </ul>
+
+    <h2>Technology</h2>
+    <p>Node.js + Express backend, MaxMind MMDB readers (DB-IP + GeoLite2 merge), RDAP for registry enrichment, Leaflet maps, and a responsive bento-grid UI.</p>
+
+    <h2>Open source</h2>
+    <p>IPScope is open source. Deploy your own instance, customize it, and contribute improvements on GitHub.</p>
+
+    <h2>Data sources</h2>
+    <ul>
+      <li>DB-IP City &amp; ASN databases</li>
+      <li>GeoLite2 City (sapics/ip-location-db)</li>
+      <li>Public RDAP registries (RIPE, ARIN, APNIC, etc.)</li>
+      <li>OpenStreetMap tiles</li>
+    </ul>

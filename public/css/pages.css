@@ -468,9 +468,87 @@ pre.code-block {
   .bulk-row { grid-template-columns: 1fr; gap: 0.25rem; }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Timezone check tool — /tools/timezone-check
+   Only the pieces the shared vocabulary did not already cover:
+   a verdict accent, the two-up comparison grid, label/value rows,
+   and the input row. All colours come from existing custom
+   properties so both themes are handled.
+   ───────────────────────────────────────────────────────────── */
+.tz-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tz-form .search-box { flex: 1 1 260px; }
+.tz-form .search-box input { width: 100%; color: var(--text); }
+
+.tz-verdict { border-left: 4px solid var(--border); }
+.tz-verdict.match { border-left-color: var(--green); }
+.tz-verdict.mismatch { border-left-color: #d97706; }
+.tz-verdict.unknown { border-left-color: var(--muted); }
+.tz-verdict .tile-value.lg { word-break: normal; letter-spacing: 0.02em; }
+.tz-verdict .tile-sub { line-height: 1.6; }
+
+.tz-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+@media (max-width: 640px) {
+  .tz-compare { grid-template-columns: 1fr; }
+}
+
+.tz-rows { margin-top: 0.75rem; }
+
+.tz-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.tz-row:last-child { border-bottom: none; }
+.tz-row span:first-child { color: var(--muted); flex: 0 0 auto; }
+
+.tz-row span:last-child {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+#tz-detail-tile .tile-value { font-variant-numeric: tabular-nums; }
+
 /* ── Print ── */
 @media print {
   .hero, .toolbar, .action-bar, .recent-panel, .site-footer, .cookie-banner, .theme-toggle, .search-box { display: none !important; }
   .main { margin-top: 0; }
   .tile { break-inside: avoid; }
 }
+
+/* ── Callout notice (abuse contact tool) ── */
+.notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  margin: 1.25rem 0;
+}
+
+.notice p { margin: 0 0 0.6rem; }
+.notice p:last-child { margin-bottom: 0; }
+
+.notice-warn { border-left-color: #b45309; }
+[data-theme="dark"] .notice-warn { border-left-color: #f59e0b; }

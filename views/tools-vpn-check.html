@@ -1,0 +1,122 @@
+    <div class="error-banner" id="vpn-error"></div>
+
+    <div class="toolbar">
+      <h2>Run the check on <span class="you" id="vpn-subject">your connection</span></h2>
+      <div class="search-box">
+        <input type="text" id="vpn-ip-input" placeholder="Any IPv4 or IPv6 address" aria-label="IP address to check" autocomplete="off" spellcheck="false">
+        <button type="button" id="vpn-check-btn">Check IP</button>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button type="button" class="action-btn primary" id="vpn-me-btn">Check my own IP</button>
+      <button type="button" class="action-btn" id="vpn-copy-btn">Copy verdict</button>
+      <a class="action-btn" href="/tools/timezone-check">Cross-check with timezone</a>
+    </div>
+
+    <div class="bento" id="vpn-results" aria-live="polite">
+      <div class="bento-section">Verdict</div>
+      <div class="tile wide-tile" id="vpn-verdict-tile">
+        <div class="tile-label">Classification</div>
+        <div class="tile-value" id="vpn-verdict-value">Checking…</div>
+        <div class="skeleton" id="vpn-verdict-skeleton"></div>
+      </div>
+      <div class="tile span-3" id="vpn-signals-tile">
+        <div class="tile-label">Signals matched</div>
+        <div class="ipv-tags" id="vpn-signals"></div>
+        <div class="tile-sub" id="vpn-signals-note"></div>
+      </div>
+
+      <div class="bento-section">Evidence the verdict is based on</div>
+      <div class="tile" id="vpn-tile-ip">
+        <div class="tile-label">IP address</div>
+        <div class="tile-value sm" id="vpn-ip">—</div>
+        <div class="tile-sub" id="vpn-ip-sub"></div>
+      </div>
+      <div class="tile span-3" id="vpn-tile-isp">
+        <div class="tile-label">ISP / network operator</div>
+        <div class="tile-value sm" id="vpn-isp">—</div>
+        <div class="tile-sub" id="vpn-isp-sub"></div>
+      </div>
+      <div class="tile" id="vpn-tile-asn">
+        <div class="tile-label">ASN</div>
+        <div class="tile-value sm" id="vpn-asn">—</div>
+        <div class="tile-sub">Autonomous system that announces this range</div>
+      </div>
+      <div class="tile" id="vpn-tile-connection">
+        <div class="tile-label">Connection type</div>
+        <div class="tile-value sm" id="vpn-connection">—</div>
+        <div class="tile-sub">Inferred, not reported by the network</div>
+      </div>
+      <div class="tile wide-tile" id="vpn-tile-hostname">
+        <div class="tile-label">Reverse DNS (PTR)</div>
+        <div class="tile-value sm" id="vpn-hostname">—</div>
+        <div class="tile-sub">Hosting providers usually name their PTR records predictably</div>
+      </div>
+      <div class="tile span-3" id="vpn-tile-location">
+        <div class="tile-label">Where this IP is registered</div>
+        <div class="tile-value sm" id="vpn-location">—</div>
+        <div class="tile-sub" id="vpn-location-sub"></div>
+      </div>
+      <div class="tile" id="vpn-tile-proxychain">
+        <div class="tile-label">Proxy headers</div>
+        <div class="tile-value sm" id="vpn-proxychain">—</div>
+        <div class="tile-sub">Forwarding headers seen on your request</div>
+      </div>
+    </div>
+
+    <h2>What this test actually measures</h2>
+    <p>This page classifies an IP address by looking at three pieces of public information: the autonomous system number (ASN) that announces the address range, the name the network operator has registered for that range, and the reverse-DNS (PTR) record for the individual address. Those three signals are compared against patterns that are typical of hosting companies, commercial VPN brands, proxy resellers and Tor exit relays. The verdict you see above is the output of that pattern match and nothing more.</p>
+    <p>It is a heuristic. It is not a commercial threat-intelligence feed, it does not query a paid reputation database, and it has no privileged knowledge of who is actually connected to any given address at any given moment. It is closer to informed guesswork based on how networks name themselves than to a definitive answer.</p>
+    <p>Being clear about that matters, because plenty of sites sell exactly this kind of pattern matching as though it were certainty. If a service tells you an IP is "confirmed VPN" with a numeric confidence score, ask yourself where that number came from.</p>
+
+    <h3>Why the ASN is the strongest signal</h3>
+    <p>Every routable block of addresses is announced to the internet by an autonomous system. Consumer ISPs, mobile carriers, universities and hosting companies all operate their own. Because an ASN is registered with a regional internet registry and is tied to an organisation name, it is a reasonable proxy for the kind of business that controls the address.</p>
+    <p>A residential broadband customer sits inside their ISP's ASN. A server in a cloud region sits inside the cloud provider's ASN. That distinction is genuinely useful: if the address you are checking belongs to a company whose business is renting out compute, a human being browsing from their sofa is not the most likely explanation for traffic coming from it.</p>
+    <p>What the ASN cannot tell you is intent. A cloud address might be a scraper, a corporate VPN gateway, a CI runner, a legitimate API client, or a developer's personal tunnel. "Datacenter" is a statement about infrastructure, not about behaviour.</p>
+
+    <h3>Why reverse DNS helps and where it stops helping</h3>
+    <p>Hosting providers tend to auto-generate PTR records in bulk, so you see patterns like a dashed form of the IP address followed by a provider domain. Residential ISPs do this too, often embedding the access technology or the exchange name. When a PTR record contains a recognisable hosting or VPN brand, that is a strong hint.</p>
+    <p>But PTR records are set by whoever controls the reverse zone, which means they can say anything. They are frequently absent altogether, stale after a range changes hands, or deliberately generic. A missing PTR record tells you almost nothing on its own.</p>
+
+    <h2>The false positives you should expect</h2>
+    <p>The most common one is an ISP that sells both consumer broadband and business hosting out of the same ASN, or under a corporate name that includes a word like "hosting" or "server". Pattern matching on the operator name will flag those ranges as datacenter even when the specific address is somebody's home connection. Small regional providers and ISPs in markets where one company does everything are particularly prone to this.</p>
+    <p>Corporate networks are another. If your employer routes staff traffic out through a central gateway in a colocation facility, your traffic legitimately originates from datacenter address space. Nothing suspicious is happening; the classification is simply describing the network topology rather than your intent.</p>
+    <p>Carrier-grade NAT can also confuse things. Mobile networks and some fixed-line providers share one public address across many subscribers, so the address represents a gateway rather than a person, and its naming may reflect the carrier's core network rather than a consumer product.</p>
+
+    <h2>The false negatives you should expect</h2>
+    <p>The harder failure runs the other way. A VPN or proxy operating on residential address space will usually look clean here, because there is no signal to catch. Residential proxy networks are built precisely to defeat this kind of check: traffic exits through real consumer connections on real consumer ISPs, so the ASN, the operator name and the PTR record all look exactly like an ordinary home user, because in a sense they are.</p>
+    <p>Self-hosted VPNs on small providers are similar. If you run your own tunnel on a modest hosting company whose name contains no recognisable keyword, the pattern match may not fire. Newly allocated ranges also lag: it takes time for registry data and PTR records to reflect who is really using a block.</p>
+    <p>So a "residential / broadband" verdict on this page means "nothing in the public data looks like a VPN". It does not mean "this is definitely a home user". Those are very different claims and it is worth keeping them apart.</p>
+
+    <h2>Using this sensibly</h2>
+    <p>Treat the verdict as one input. If you are investigating abusive traffic, combine it with behaviour, request patterns, and the registry contact details you can pull from the <a href="/tools/abuse-contact">abuse contact lookup</a>. If you are testing your own VPN, the more revealing check is often whether your browser's timezone agrees with the timezone of your exit IP — a mismatch is the single most common way VPN users give themselves away, and the <a href="/tools/timezone-check">timezone check</a> tests exactly that.</p>
+    <p>The <a href="/tools/reverse-dns">reverse DNS lookup</a> shows you the raw PTR data behind the hostname line above, which is useful when you want to judge the naming pattern yourself rather than trusting a keyword match. For checking many addresses at once, the <a href="/tools/bulk-lookup">bulk lookup tool</a> returns the same threat fields for a list of IPs, and every field on this page is available programmatically through the <a href="/api-docs">API</a>.</p>
+    <p>If you simply want to see everything known about your current connection in one place, start from the <a href="/">homepage</a>. Broader questions about how IP data works are covered in the <a href="/faq">FAQ</a>.</p>
+
+    <h2>Frequently asked questions</h2>
+
+    <details class="faq-item" open>
+      <summary>Am I using a VPN right now?</summary>
+      <div class="faq-body"><p>If the verdict above says likely VPN, proxy or datacenter, your traffic is probably leaving through something other than a plain consumer connection. If it says residential or broadband, either you are not on a VPN or you are on one that runs on residential address space, which this check cannot see. Your own device settings are a more reliable answer than any external test.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Why does this say datacenter when I am at home on normal broadband?</summary>
+      <div class="faq-body"><p>Most likely your ISP's registered network name or ASN description contains a word associated with hosting, or the provider sells hosting from the same address space it uses for consumer lines. The classification reads the operator's own naming, so a provider that describes itself in hosting terms will be read that way. Check the ISP and ASN lines above to see what triggered it.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can this detect a residential proxy?</summary>
+      <div class="faq-body"><p>Generally no. Residential proxies exit through genuine consumer connections, so the ASN, operator name and PTR record are those of an ordinary ISP. There is no public signal to match against, and this check will usually report them as low risk.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What does the risk level mean?</summary>
+      <div class="faq-body"><p>It is a coarse three-step summary of the signals matched, not a probability or a score. Tor exit nodes are treated as high because they are unambiguous when identified. VPN, proxy and datacenter matches are medium. Everything else is low. The label describes the kind of network, not whether the traffic is malicious.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Should I block traffic based on this?</summary>
+      <div class="faq-body"><p>Not on its own. Blocking all datacenter address space also blocks corporate VPN users, legitimate API clients, accessibility tools and privacy-conscious people with no bad intent. Use the verdict as a weak signal alongside behaviour you can actually observe, and prefer rate limiting or additional verification over outright refusal.</p></div>
+    </details>

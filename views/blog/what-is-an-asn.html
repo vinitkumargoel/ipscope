@@ -1,0 +1,62 @@
+    <h2>The short answer</h2>
+    <p>An Autonomous System Number is a globally unique identifier assigned to a network that controls its own routing policy &ndash; an ISP, a hosting company, a university, a large enterprise. When you look up an IP address and see something like <code>AS15169</code>, that is the number of the network currently announcing to the rest of the internet that it can carry traffic for that address.</p>
+    <p>The internet is not one network. It is tens of thousands of separately administered networks that agree to exchange traffic, and the ASN is how they refer to one another. Without it there would be no way to say "send packets for this block of addresses towards that operator" &ndash; the entire job of routing between networks.</p>
+
+    <h2>What an autonomous system actually is</h2>
+    <p>An autonomous system is one or more IP prefixes under a single, coherent routing policy. The word "autonomous" is doing real work: the operator decides which neighbours it accepts routes from, which it passes on, and which paths it prefers, and nobody outside can override that. What it cannot choose is its own identifier, which has to be unique across the whole internet.</p>
+    <p>Numbers come from the five regional internet registries &ndash; ARIN, RIPE NCC, APNIC, LACNIC and AFRINIC &ndash; usually to organisations that connect to more than one upstream and so need a policy of their own. A network with a single upstream normally does not need an ASN; it lives inside its provider's address space and its provider's number.</p>
+
+    <h3>Why the numbers look inconsistent in size</h3>
+    <p>ASNs were originally 16-bit, giving the range 0 to 65535. That space ran low, so the field was widened to 32 bits, which is why you see both compact numbers like <code>AS3356</code> and long ones like <code>AS396982</code>. Both are valid; the long ones were allocated later. A few values are set aside and should never originate a public route:</p>
+    <ul>
+      <li><code>AS0</code> &ndash; reserved, and treated as invalid in a routing announcement.</li>
+      <li><code>AS64512</code>&ndash;<code>AS65534</code> and <code>AS4200000000</code>&ndash;<code>AS4294967294</code> &ndash; private use, the ASN equivalent of RFC 1918 addresses. Fine internally, never on the public internet.</li>
+      <li><code>AS23456</code> &ndash; a placeholder used when an old 16-bit-only router has to represent a 32-bit number it cannot store.</li>
+    </ul>
+    <p>If a lookup reports one of those for a public address, the data is wrong.</p>
+
+    <h2>How BGP uses the ASN to route traffic</h2>
+    <p>Border Gateway Protocol is how autonomous systems tell each other which prefixes they can reach. An announcement is, at heart, two things: a prefix such as <code>203.0.113.0/24</code>, and an AS_PATH listing the systems it has travelled through. Each AS that passes the route along prepends its own number to that list. A router in a small ISP might hold a path reading:</p>
+    <pre>203.0.113.0/24  via  64500 64501 64502</pre>
+    <p>Read it right to left. <code>64502</code> is the origin &ndash; the network that announces the prefix. <code>64501</code> is a transit provider that learned the route from it, and <code>64500</code> is the neighbour that handed it to this router. The prefix and the numbers here are reserved for documentation, so nothing in the example collides with a real network.</p>
+    <p>The AS_PATH does two jobs. It gives a rough cost signal, since a shorter path wins by default when nothing else separates two options. More importantly it prevents loops: a router that sees its own ASN already in the path knows the announcement has been round the block, and discards it. That one rule stops a mesh of independent networks folding in on itself.</p>
+
+    <h3>Policy usually beats path length</h3>
+    <p>In practice the shortest path frequently loses. Operators weight routes by commercial relationship: a route from a customer beats one from a peer, and a peer beats a paid transit provider, whatever the hop counts. This is why traffic between two cities in the same country can leave the continent and come back, and one reason IP geolocation goes wrong in the ways described in <a href="/blog/why-ip-shows-wrong-city">why your IP location shows the wrong city</a>.</p>
+
+    <h3>What happens when an announcement is wrong</h3>
+    <p>BGP has no built-in way to verify that an AS is entitled to announce a prefix; it historically ran on trust between operators. The classic failure is a network announcing address space it does not hold, sometimes through a mistake in a filter and occasionally on purpose. Because routers prefer a more specific prefix, announcing a <code>/24</code> inside somebody else's <code>/19</code> can pull that traffic away globally very quickly. There have been well documented cases where an ISP's internal attempt to block a large website leaked into the global routing table and made that site unreachable for users well outside the ISP's own customer base.</p>
+    <p>The mitigations are filtering at the edge and RPKI, where an address holder publishes a signed statement of which ASN may originate its prefixes so neighbours can reject anything that contradicts it. Adoption is well underway but not universal, so a route's presence in the global table is not proof it is legitimate.</p>
+
+    <h2>Reading the ASN attached to an IP address</h2>
+    <p>In an IPScope result the <code>asn</code> field is the origin network's number and <code>isp</code> is that organisation's name as recorded in routing data. <code>network</code> is the prefix the address falls inside, and <code>registry</code> is the registry holding the record. For a Google-operated address:</p>
+    <pre>asn      AS15169
+isp      Google LLC
+network  142.250.0.0/15
+registry ARIN</pre>
+    <p>Three things to take from that. The ASN identifies an operator, not a place. The prefix shows how coarsely the address is grouped, and a <code>/15</code> covers well over a hundred thousand addresses across many countries. And the organisation name comes from a registry record maintained by humans, which can lag reality by years after a merger or block transfer.</p>
+
+    <h3>What the ASN does and does not tell you</h3>
+    <p>The ASN is one of the more reliable signals about an address, because a network has to announce its prefixes to receive traffic at all &ndash; there is no spoofable header equivalent. What it gives you is the category of network, and a residential ISP, a cloud provider and a transit backbone behave very differently in a log file. Knowing which you are looking at usually matters more than the reported city. What it does not tell you:</p>
+    <ul>
+      <li><strong>Location.</strong> One ASN routinely spans continents. Any city attached to the result comes from separate geolocation data and is approximate at best.</li>
+      <li><strong>Who the user is.</strong> A cloud provider's ASN says the address sits in rented infrastructure. It says nothing about whose.</li>
+      <li><strong>Whether traffic is legitimate.</strong> Datacentre ASNs carry monitoring, CI jobs, corporate VPNs and abuse in the same ranges.</li>
+    </ul>
+    <p>Private and shared address space has no ASN at all. Addresses from <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code> are never announced, so there is nothing to look up. Carrier-grade NAT addresses from <code>100.64.0.0/10</code> are the same: they exist inside a carrier's network but are not routed globally, so a lookup tells you nothing even though the address looks ordinary.</p>
+
+    <h3>Cross-checking with reverse DNS</h3>
+    <p>Operators often encode useful detail in PTR records. A hostname such as:</p>
+    <pre>ec2-203-0-113-45.eu-west-1.compute.amazonaws.com</pre>
+    <p>gives you the region as well as the platform, which the ASN alone does not. Consumer connections tend towards patterns built from the address itself, like <code>host-203-0-113-45.dyn.example-isp.net</code>, where <code>dyn</code> or <code>pool</code> hints the address is reassigned periodically. These are hints, not facts: PTR records are set by the operator and can say anything, or nothing.</p>
+
+    <h2>Why two tools report different ASNs</h2>
+    <p>ASN data comes from the global routing table, which is not a single authoritative document. Providers snapshot it from different collectors at different times, and genuine ambiguity exists: a prefix can be announced by more than one ASN, or announced by one organisation while the block is still registered to another. Add stale registry records and tools will disagree. Where it matters, check the table yourself through a public looking glass rather than trusting any single lookup, including this one.</p>
+
+    <h2>What to do next</h2>
+    <p>The commonest practical use of an ASN is deciding whether an address belongs to a consumer ISP or to hosting infrastructure. The <a href="/tools/vpn-check">VPN and proxy check</a> leans on exactly that: it reports the ASN and organisation alongside whether the network looks like a datacentre, a known relay or an ordinary residential connection, so you see the reasoning rather than a bare verdict. Two to pair with it:</p>
+    <ul>
+      <li><a href="/tools/reverse-dns">Reverse DNS lookup</a> &ndash; for the hostname cross-check above.</li>
+      <li><a href="/tools/abuse-contact">Abuse contact lookup</a> &ndash; finds the registry contact responsible for the network an address sits behind.</li>
+    </ul>
+    <p>For more on what routing data can and cannot say about location, read <a href="/blog/how-accurate-is-ip-geolocation">how accurate is IP geolocation, really?</a> next. The honest position: IPScope can tell you fairly confidently which network an address belongs to, and only roughly where that network says it is.</p>

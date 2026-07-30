@@ -1,0 +1,111 @@
+    <p class="page-meta">Enter an IPv4 or IPv6 address to fetch the network's registration record from its regional internet registry, including the published abuse mailbox.</p>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="abuse-ip" name="abuse-ip" inputmode="text" autocomplete="off" spellcheck="false" placeholder="8.8.8.8 or 2001:4860:4860::8888" aria-label="IP address to look up">
+        <button type="button" id="abuse-lookup-btn">Find contact</button>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button type="button" class="action-btn" id="abuse-me-btn">Use my IP</button>
+      <button type="button" class="action-btn" id="abuse-clear-btn">Clear</button>
+    </div>
+
+    <div class="error-banner" id="abuse-error" role="alert"></div>
+
+    <div id="abuse-results"></div>
+
+    <h2>What the abuse contact actually is</h2>
+
+    <p>Every block of public IP address space is registered to an organisation by one of the five regional internet registries: ARIN, RIPE NCC, APNIC, LACNIC and AFRINIC. As part of that registration the holder is expected to publish a contact address for reports of network abuse originating from their range. That address is what this tool retrieves.</p>
+
+    <p>The important thing to understand is who sits behind that mailbox. The abuse contact belongs to the <strong>network operator responsible for the range</strong>, not to whoever was using the address at the time. If an attack comes from a hosting or cloud provider, the abuse contact is the provider's own security or trust-and-safety team, and the person who rented the server is their customer. The provider decides what to do about that customer. You have no direct line to the customer and, in most cases, you should not try to build one.</p>
+
+    <p>This also means the contact you get back is often several layers removed from the incident. Large providers hand out sub-allocations, and a smaller reseller may be the party that actually controls the address. When the record shows a parent network alongside a more specific assignment, the more specific one is usually the closer operator, and the parent is the upstream you can escalate to if the specific one does not respond.</p>
+
+    <h2>How the lookup works</h2>
+
+    <p>The record comes from RDAP, the Registration Data Access Protocol, which is the structured JSON replacement for the old text-based WHOIS service. RDAP returns the network name and handle, the address range and its CIDR notation, the registry that holds it, registration and last-updated timestamps, and the contact entities attached to the object. Abuse and technical contacts are published as roles on those entities.</p>
+
+    <p>RDAP is more reliable than parsing WHOIS text, but it is not uniform. The registries model their data slightly differently, some holders publish an abuse mailbox and some do not, and a few publish an address that has clearly not been read in years. If no abuse contact appears in the record, the usual fallbacks are the technical contact, the abuse address of the parent network, or the operator's published security contact on their own website. Many networks also publish a <code>security.txt</code> file at <code>/.well-known/security.txt</code> on their main domain.</p>
+
+    <p>Registration data describes ownership, not location. If you want to know where an address appears to be, or whether it looks like a datacentre or a consumer connection, that is a different question — see the <a href="/">main lookup</a> and the <a href="/tools/vpn-check">VPN and proxy check</a>. Reverse DNS often names the operator's own infrastructure and can be a useful cross-check; the <a href="/tools/reverse-dns">reverse DNS tool</a> covers that.</p>
+
+    <h2>How to report abuse effectively</h2>
+
+    <p>Abuse desks are usually understaffed and heavily automated. A report that is easy to parse gets acted on; a vague one gets closed. The difference is almost entirely in what you include and how you format it.</p>
+
+    <h3>Include the evidence, not a description of it</h3>
+
+    <ul>
+      <li><strong>Full timestamps with an explicit timezone or UTC offset.</strong> This is the single most common reason reports are rejected. "14:32 on Tuesday" is unusable; <code>2026-07-28T14:32:07+05:30</code> is actionable. If you are not sure your logs agree with the recipient's clock, say which timezone your server runs in. The <a href="/tools/timezone-check">timezone check tool</a> can help you work out an offset.</li>
+      <li><strong>The offending IP address</strong>, written out in full, once, unambiguously.</li>
+      <li><strong>The destination.</strong> Which of your hosts or services was targeted, and its IP or hostname.</li>
+      <li><strong>The protocol and port.</strong> TCP 22, UDP 53, and so on. This tells the operator immediately what kind of activity they are looking at.</li>
+      <li><strong>Raw log lines.</strong> Paste the actual entries, unedited apart from redacting anything you must. Include enough lines to show the pattern, not hundreds of identical ones.</li>
+      <li><strong>A one-line statement of what happened</strong> at the top, so a human triaging the queue knows what they are reading before they get to the logs.</li>
+    </ul>
+
+    <h3>Format it so a machine can read it</h3>
+
+    <p>Send plain text. Screenshots of a terminal cannot be searched, parsed, or copied into a ticket, and many abuse pipelines discard attachments outright. Do not send a PDF. Do not send HTML mail with the logs in a table. One incident per report, with its own subject line, so each gets its own ticket and its own outcome — bundling a week of unrelated events into one message guarantees that only the first is looked at.</p>
+
+    <p>Send the report from an address you can actually receive replies on. Expect an automated acknowledgement with a ticket or case ID back, usually within minutes. Keep that ID: it is what you quote if the activity continues and you need to follow up or escalate to the upstream network.</p>
+
+    <h3>What to expect in return</h3>
+
+    <p>Most abuse desks do not tell you what they did. You will typically get the ticket ID and then silence, and the only signal you get is whether the traffic stops. That is normal and is not a sign your report was ignored. What you should not expect is the identity of the customer, any confirmation of enforcement action, or a response at all from every operator you contact.</p>
+
+    <h2>Before you send anything</h2>
+
+    <div class="notice notice-warn">
+      <p><strong>Only report traffic you actually observed, against infrastructure you control or are authorised to defend.</strong> Your own logs, on your own systems, are the basis for a legitimate report. Forwarding someone else's log excerpt, or reporting an address because it appeared on a blocklist, is not.</p>
+      <p>Do not scan, probe or otherwise send traffic back to the source address. That is a fresh unauthorised access attempt from your network, it may be unlawful where you are or where they are, and it turns you into the subject of the next abuse report. Block the address at your firewall and report it — that is the whole of the response available to you.</p>
+      <p>Do not use this tool to assemble contact lists for bulk or repeat complaints, campaigns against a network, or reports about activity you have not seen yourself. Abuse desks rate-limit and eventually blacklist senders who do that, which costs you the ability to report the incidents that matter.</p>
+    </div>
+
+    <h2>Limits worth knowing</h2>
+
+    <p>Registration data can be stale. Contact addresses go unmaintained, organisations are acquired, and ranges are transferred without every field being updated. A bouncing abuse mailbox is common enough that it is worth checking the parent network before concluding there is nobody to contact.</p>
+
+    <p>Registration also tells you nothing about intent. A source address may be a compromised machine whose owner has no idea, a shared NAT gateway carrying thousands of unrelated users, or a mobile carrier address that was reassigned minutes after your logs were written. Precision about the timestamp matters largely because of that last case: without it the operator cannot map the address back to a subscriber session at all.</p>
+
+    <p>Finally, an abuse report is a request, not an instruction. The operator decides whether the activity breaches their terms and what to do about it. Your protection comes from your own firewall and monitoring; the report is what stops the same source being a problem for everyone else.</p>
+
+    <h2>Related tools</h2>
+
+    <ul>
+      <li><a href="/tools/bulk-lookup">Bulk lookup</a> — resolve several addresses at once when you are triaging a log file.</li>
+      <li><a href="/tools/reverse-dns">Reverse DNS</a> — check whether the PTR record agrees with the registered operator.</li>
+      <li><a href="/tools/vpn-check">VPN and proxy check</a> — see whether the source looks like a datacentre or an anonymising service.</li>
+      <li><a href="/api-docs">API documentation</a> — the same registration fields are available programmatically from <code>/api/lookup/:ip</code>.</li>
+      <li><a href="/faq">FAQ</a> — general questions about how IPScope resolves addresses.</li>
+    </ul>
+
+    <h2>Frequently asked questions</h2>
+
+    <details class="faq-item" open>
+      <summary>Why is there no abuse email for this IP?</summary>
+      <div class="faq-body"><p>The registration record simply may not publish one. Not every registry enforces an abuse role on every object, and some holders only list a technical contact. Try the technical contact shown, then the abuse address of the parent network, then the operator's own <code>security.txt</code> or contact page. Addresses in private, reserved or bogon ranges have no registry record at all.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Is the abuse contact the person who attacked me?</summary>
+      <div class="faq-body"><p>No. It is the network operator who holds the address range. For a hosting or cloud provider that is the provider's own abuse team, and the attacker is their customer. The operator will not normally tell you who the customer is; they decide internally what action to take.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What is RDAP and how is it different from WHOIS?</summary>
+      <div class="faq-body"><p>RDAP returns registration data as structured JSON over HTTPS, with a consistent object model and defined contact roles. Classic WHOIS returns free-form text that differs between registries and has to be parsed by guesswork. RDAP is the current standard and is what this tool queries; the <code>whoisServer</code> field is included for reference when you need the legacy service.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What should I do if the abuse desk never replies?</summary>
+      <div class="faq-body"><p>Silence is the normal outcome — most desks acknowledge with a ticket ID and nothing more. Judge the result by whether the traffic stops. If it continues, follow up once quoting the original ticket ID, and if there is still nothing, contact the parent network shown in the record. Keep blocking the source at your own firewall throughout.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can I report an IP I found on a blocklist?</summary>
+      <div class="faq-body"><p>You should not. Report only what your own logs recorded against your own systems. A report without first-hand evidence wastes the operator's time, cannot be verified, and damages the credibility of your future reports. If an address is on a blocklist, someone with the evidence has already reported it.</p></div>
+    </details>

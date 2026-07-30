@@ -1,0 +1,79 @@
+    <h2>The short answer</h2>
+    <p>A VPN client showing "Connected" only tells you that a tunnel exists, not that all of your traffic is inside it. To check for a leak you have to test each escape path separately: load a page that reports your IPv4 <em>and</em> IPv6 addresses, confirm both belong to the VPN operator rather than your ISP, check which resolver is answering your DNS queries, and check whether your browser's WebRTC stack is handing out an address the tunnel did not assign.</p>
+
+    <p>One "what is my IP" check is not enough because different parts of your system handle each path. The page answers over whichever address family your browser picked. DNS resolves before the connection is made. WebRTC bypasses the HTTP stack entirely. Each can fail alone while the other three look clean.</p>
+
+    <h2>Establish a baseline first</h2>
+    <p>You cannot recognise a leak without knowing what your unprotected connection looks like. Disconnect the VPN and record four things from <a href="/">the IPScope homepage</a>:</p>
+
+    <ul>
+      <li>Your public IPv4 address, if you have one.</li>
+      <li>Your public IPv6 address, if your ISP provides one.</li>
+      <li>The ASN and network operator name behind each.</li>
+      <li>The reverse DNS hostname, if one is set.</li>
+    </ul>
+
+    <p>The ASN matters more than the city. City-level geolocation is approximate, whereas the autonomous system number is registry data about who announces the block. A baseline showing a residential broadband operator against a connected state showing a hosting company is a meaningful change; a city shifting between suburbs is noise. See <a href="/blog/why-ip-shows-wrong-city">Why Your IP Location Shows the Wrong City</a> and <a href="/blog/what-is-an-asn">What Is an ASN?</a>.</p>
+
+    <h3>If your baseline is already a shared address</h3>
+    <p>Some connections never had a unique public IPv4 address to leak. A baseline inside <code>100.64.0.0/10</code> means you are behind carrier-grade NAT, sharing an outbound address with other subscribers of the same ISP — mobile networks do this routinely. Any address that escapes identifies your carrier's gateway rather than your line.</p>
+
+    <h2>The IPv6 leak</h2>
+    <p>This one is easy to miss. IPv4 addresses are 32 bits, IPv6 addresses are 128 bits, and the two protocols route independently. A client that installs a default route for IPv4 but never claims <code>::/0</code> leaves every IPv6-capable destination reachable directly over your ISP. The dashboard is right that the tunnel is up; it just is not carrying half your traffic.</p>
+
+    <p>Test it with a page that reports both families. A leaking dual-stack connection looks like this:</p>
+
+    <ul>
+      <li><strong>IPv4:</strong> an address announced by a hosting or transit provider, in the country you selected.</li>
+      <li><strong>IPv6:</strong> a global address announced by your own ISP, in your own region.</li>
+    </ul>
+
+    <p>Ignore anything starting <code>fe80:</code>. The <code>fe80::/10</code> range is link-local, valid only on the local segment and never routable across the internet; the IPv4 equivalent is <code>169.254.0.0/16</code>. A globally routable IPv6 address falls inside <code>2000::/3</code>, so it starts with a 2 or a 3. That is the one to compare against your baseline. <a href="/blog/ipv4-vs-ipv6">IPv4 vs IPv6</a> covers the addressing differences.</p>
+
+    <p>Two results are acceptable. No IPv6 address at all means your ISP does not offer it or your client blocks it outright — crude, but not a leak. An IPv6 address belonging to the VPN operator means IPv6 is genuinely tunnelled.</p>
+
+    <h2>The DNS leak</h2>
+    <p>A DNS leak does not expose your IP address to the site you visit. It exposes the names you look up to whoever runs the resolver, and it leaks your rough location indirectly, since some authoritative servers tailor answers to where the query came from. Traffic tunnelled through one country while queries go to your ISP's resolver at home is a contradiction.</p>
+
+    <p>Be clear about what a web page can and cannot test here. A genuine DNS leak test needs a server that controls an authoritative zone and logs which resolver asked for a unique, one-off subdomain. IPScope does not run one, so it cannot make that check, and any page claiming to test DNS from data your browser already sent is not testing DNS. What you can do locally is read the resolver your system is using:</p>
+
+    <pre><code>macOS:    scutil --dns
+Linux:    resolvectl status
+Windows:  ipconfig /all</code></pre>
+
+    <p>Read the answer carefully. If the resolver is <code>192.168.1.1</code>, or anything inside <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> or <code>192.168.0.0/16</code>, you have learned nothing: those are RFC 1918 private ranges, so the entry is your own router forwarding to an upstream resolver you still cannot see. Check the router's WAN-side DNS settings to find where queries end up. If the resolver is a public address, run it through <a href="/tools/reverse-dns">the reverse DNS tool</a>. A resolver in your VPN provider's ASN is expected; one in your home ISP's ASN, while the tunnel is up, is a leak.</p>
+
+    <h2>The WebRTC leak</h2>
+    <p>WebRTC is the browser API behind peer-to-peer voice and video. To connect two peers it gathers <em>ICE candidates</em>: addresses at which the browser thinks it can be reached. It finds the public one by asking a STUN server "what address did this packet arrive from?", and the answer returns as a <em>server reflexive</em> candidate. That exchange happens over UDP, outside the browser's HTTP stack, so a tunnel that only captures certain routes can miss it.</p>
+
+    <p>A raw candidate looks like this, with the address as the fifth field:</p>
+
+    <pre><code>candidate:842163049 1 udp 1677729535 203.0.113.45 54321 typ srflx raddr 0.0.0.0 rport 0</code></pre>
+
+    <p>The <code>typ srflx</code> marker is the important part: that address is what a remote peer would see, and if it differs from the address the page reports, something is escaping the tunnel. The IPScope homepage runs this probe when the server cannot see a usable public address for you: it opens a short-lived peer connection against a public STUN endpoint and reads the candidates. The STUN server itself is third-party infrastructure — an operator such as Google, whose network is AS15169 — but that is irrelevant. What matters is the address inside the candidate, not who answered.</p>
+
+    <h3>Why you may not see a local address any more</h3>
+    <p>WebRTC used to expose internal LAN addresses via <em>host</em> candidates. Current browsers replace those with a randomised <code>.local</code> mDNS hostname, so a missing <code>192.168.x.x</code> is normal and not evidence anything is fixed. Global IPv6 host candidates are different: a machine with a routable IPv6 address can still offer it directly, which is another way an IPv6 leak surfaces.</p>
+
+    <h2>Reading the results without fooling yourself</h2>
+    <p>False alarms usually come from over-reading geolocation. IPScope's own location data is approximate and city-level at best; it reflects where a block is registered, not where you are sitting. Do not conclude the VPN is broken because the city is wrong, or that it works because the country is right. Compare the operator and ASN, which are registry facts, and treat the city as a weak hint — <a href="/blog/how-accurate-is-ip-geolocation">How Accurate Is IP Geolocation, Really?</a> explains where the error comes from.</p>
+
+    <p>Time is a useful independent cross-check, because your browser reports the timezone your operating system is set to and the tunnel does not change that. If the IP resolves several hours from your system clock's zone, either the tunnel is working and your clock gives you away, or the geolocation record is stale. <a href="/tools/timezone-check">The timezone check</a> compares the two.</p>
+
+    <h2>The failure mode no test can catch</h2>
+    <p>Everything above tests one moment. Tunnels drop on sleep and wake, on switching from Wi-Fi to mobile, on captive portals that hijack DNS before you authenticate, and during reconnects when routes are rebuilt. In those windows traffic takes the default route and your real address is used, and a page loaded five minutes earlier will not tell you.</p>
+
+    <p>The structural defence is a client-side kill switch that blocks traffic when the tunnel is down, verified by checking repeatedly rather than once — particularly straight after a network change. <a href="/blog/is-my-vpn-working">Is My VPN Working?</a> covers the connection-state checks that actually prove something.</p>
+
+    <h2>What to do next</h2>
+    <p>Run the checks in order, not all at once, so you know which path failed:</p>
+
+    <ol>
+      <li>Disconnected, record your baseline on <a href="/">the homepage</a>: both address families and the ASN behind each.</li>
+      <li>Reconnect and run <a href="/tools/vpn-check">the VPN and proxy check</a> for the operator, ASN, connection type and reverse DNS of the address you present.</li>
+      <li>Compare the IP's timezone against your system clock with <a href="/tools/timezone-check">the timezone check</a>.</li>
+      <li>Resolve your DNS resolver's address with <a href="/tools/reverse-dns">reverse DNS</a> to see whose network answers your queries.</li>
+      <li>Repeat step 2 after a sleep, reconnect or network switch.</li>
+    </ol>
+
+    <p>To compare several addresses side by side — baseline, tunnelled address, resolver — <a href="/tools/bulk-lookup">bulk lookup</a> takes them together. Shorter answers are in the <a href="/faq">FAQ</a>.</p>

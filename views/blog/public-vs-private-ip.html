@@ -1,0 +1,63 @@
+    <h2>The short answer</h2>
+    <p>A private IP address is one your own router hands out inside your network, drawn from a range that the public internet refuses to route &ndash; something like <code>192.168.1.24</code>. A public IP address is the single routable address your ISP assigns to your connection, and it is the one every website, mail server and game host actually sees.</p>
+    <p>Both belong to you at the same time. Your laptop knows only the private one; the internet knows only the public one; a device called your router sits in the middle rewriting packets so the two halves line up. That rewriting is Network Address Translation, and it explains almost every confusing thing about this topic.</p>
+
+    <h2>Which ranges are private</h2>
+    <p>Private addresses are not a vague category. Three IPv4 blocks are reserved for private use by RFC 1918, and every home and office network uses some slice of them:</p>
+    <ul>
+      <li><code>10.0.0.0/8</code> &ndash; <code>10.0.0.0</code> to <code>10.255.255.255</code>. Around 16.7 million addresses. Common in corporate networks and cloud VPCs.</li>
+      <li><code>172.16.0.0/12</code> &ndash; <code>172.16.0.0</code> to <code>172.31.255.255</code>. Note the range stops at <code>172.31</code>; <code>172.32.x.x</code> is ordinary public space, and Docker's default bridge lives in this block.</li>
+      <li><code>192.168.0.0/16</code> &ndash; <code>192.168.0.0</code> to <code>192.168.255.255</code>. The consumer router default, usually as <code>192.168.0.0/24</code> or <code>192.168.1.0/24</code>.</li>
+    </ul>
+    <p>A few other ranges are also not public, and people often lump them in:</p>
+    <ul>
+      <li><code>127.0.0.0/8</code> &ndash; loopback. <code>127.0.0.1</code> means "this machine" and never leaves it.</li>
+      <li><code>169.254.0.0/16</code> &ndash; IPv4 link-local. A device gives itself one of these when DHCP fails, so seeing <code>169.254.x.x</code> on an interface usually means your machine never got an address from the router at all.</li>
+      <li><code>100.64.0.0/10</code> &ndash; carrier-grade NAT space. Shared, not routable on the public internet, but assigned by your ISP rather than by you. More on this below.</li>
+      <li><code>fe80::/10</code> and <code>fc00::/7</code> &ndash; the IPv6 equivalents of link-local and private-ish addressing.</li>
+    </ul>
+    <p>The same private addresses are in use on countless separate networks at the same time. That is fine precisely because they are not globally routable: a packet addressed to <code>192.168.1.1</code> has no meaning outside the network it was sent on, and any well-behaved router on the internet drops it.</p>
+
+    <h2>Why the split exists</h2>
+    <p>IPv4 addresses are 32 bits, which caps the total at roughly 4.3 billion, and a substantial share of those are reserved and unusable. That was never going to cover every phone, laptop, television, thermostat and virtual machine. Rather than give each device its own globally unique address, the internet settled on giving each <em>connection</em> one address and letting the devices behind it share.</p>
+    <p>So your ISP allocates you one public IPv4 address, sometimes not even that. Your router then runs a DHCP server on the inside and hands out private addresses from one of the RFC 1918 blocks to everything that joins. Ten devices, one public address, and the router keeps the books.</p>
+
+    <h2>How NAT joins the two</h2>
+    <p>Suppose your laptop is <code>192.168.1.24</code> and your ISP has given your router the public address <code>203.0.113.45</code>. You request a page. Your laptop sends a packet with source <code>192.168.1.24:52413</code>. If that packet reached the web server unchanged, the reply would be addressed to <code>192.168.1.24</code>, which the server's own network would either drop or deliver to some unrelated machine of its own.</p>
+    <p>Instead the router rewrites the source before the packet leaves, and records what it did:</p>
+    <pre>inside                    outside
+192.168.1.24:52413   &lt;-&gt;   203.0.113.45:41022
+192.168.1.31:60112   &lt;-&gt;   203.0.113.45:41023
+192.168.1.9:49877    &lt;-&gt;   203.0.113.45:41024</pre>
+    <p>The server sees a request from <code>203.0.113.45:41022</code> and replies there. The router looks up port 41022 in its translation table, rewrites the destination back to <code>192.168.1.24:52413</code>, and forwards it to your laptop. The laptop never learns that any of this happened, which is why the address in your network settings and the address a lookup reports are different numbers and both are correct.</p>
+    <h3>The consequences of that table</h3>
+    <ul>
+      <li><strong>Inbound connections do not work by default.</strong> An unsolicited packet arriving at <code>203.0.113.45</code> has no matching entry, so the router has nowhere to send it. This is why hosting a game server or an SSH box from home needs explicit port forwarding.</li>
+      <li><strong>Entries expire.</strong> Idle mappings are reclaimed, which is a large part of why long-lived connections need keepalives.</li>
+      <li><strong>NAT is not a firewall.</strong> It happens to drop unsolicited inbound traffic as a side effect of not knowing where to send it, which is a real benefit, but it inspects nothing and protects nothing once a connection is established from inside.</li>
+    </ul>
+
+    <h2>The awkward middle: carrier-grade NAT</h2>
+    <p>Increasingly your router does not get a public address either. Mobile carriers and a growing number of fixed-line ISPs assign customers an address from <code>100.64.0.0/10</code> and run a second translation layer of their own, so many subscribers share one public address between them. Your traffic is then translated twice: private to CGNAT, CGNAT to public.</p>
+    <p>You can spot this by comparing what your router's status page says its WAN address is against what a lookup reports. If the WAN address starts with <code>100.</code> in the range <code>100.64</code> to <code>100.127</code> and the lookup shows something else entirely, you are behind CGNAT. Two things follow. Port forwarding on your own router accomplishes nothing, because the carrier's translator is the real gateway. And geolocation gets worse, because the address being looked up belongs to carrier equipment that may be nowhere near you &ndash; a frequent cause of <a href="/blog/why-ip-shows-wrong-city">an IP location showing the wrong city</a>.</p>
+    <p>Worth knowing if you write code that classifies addresses: <code>100.64.0.0/10</code> is not an RFC 1918 range, so a check that tests only for the three private blocks will treat a CGNAT address as ordinary public space. Test for it explicitly.</p>
+
+    <h2>How IPv6 changes it</h2>
+    <p>IPv6 addresses are 128 bits, so scarcity stops driving the design. A device on an IPv6 network normally holds a globally routable address of its own, and translation is not part of the usual path. The distinction does not disappear &ndash; <code>fe80::/10</code> link-local addresses exist on every interface, and <code>fc00::/7</code> unique local addresses cover the cases RFC 1918 covered &ndash; but the everyday address on your machine is a real internet address rather than a stand-in.</p>
+    <p>This is why a dual-stack machine can look inconsistent. Your IPv4 identity is a shared, translated address belonging to the router or the carrier; your IPv6 identity is the device itself, and it may rotate as privacy extensions cycle temporary addresses. The two can resolve to different networks and different cities. That is normal, and it is covered in more depth in <a href="/blog/ipv4-vs-ipv6">IPv4 vs IPv6: what is actually different</a>.</p>
+
+    <h2>Reading it in logs</h2>
+    <p>If you run anything behind a reverse proxy, a load balancer or a container network, your application logs will be full of private addresses, because the nearest hop is on the inside. A line like this is not a visitor from <code>10.0.0.7</code>:</p>
+    <pre>10.0.0.7 - - [30/Jul/2026:09:14:22 +0000] "GET /api/me HTTP/1.1" 200
+  X-Forwarded-For: 203.0.113.45, 10.0.0.7</pre>
+    <p><code>10.0.0.7</code> is the proxy. The client is the leftmost entry in <code>X-Forwarded-For</code>. Two rules keep this from going wrong: trust that header only from hops you control, since a client can send whatever it likes in it, and do not attempt geolocation on RFC 1918 addresses at all &ndash; there is nothing to look up, because the address is not globally unique.</p>
+    <p>IPScope reflects this. A lookup returns an <code>ipType</code> of <code>Private (RFC1918)</code>, <code>Loopback</code> or <code>Link-local</code> for non-routable input, with <code>isGlobal</code> false, and does not pretend to place it on a map.</p>
+
+    <h2>What to do next</h2>
+    <p>Open the <a href="/">IPScope homepage</a> to see your public address, its type, and the ISP and network it belongs to, then compare that against the address shown in your own device's network settings. The gap between the two is exactly the NAT boundary described above. From there:</p>
+    <ul>
+      <li><a href="/tools/vpn-check">VPN and proxy check</a> &ndash; useful if a tunnel is adding a third address to the chain, and for confirming whether it covers IPv6 as well as IPv4.</li>
+      <li><a href="/tools/bulk-lookup">Bulk lookup</a> &ndash; paste a column of addresses from an access log; private and loopback entries come back flagged rather than guessed at.</li>
+      <li><a href="/blog/why-does-my-ip-change">Why does my IP address keep changing?</a> &ndash; the follow-on question once you know which of your two addresses is the one that moves.</li>
+    </ul>
+    <p>One honest limitation: even for a genuinely public address, the location IPScope reports comes from registration and routing data, not from the device. City level is the realistic ceiling and it is often wrong at that level, particularly behind CGNAT. It tells you where an address is administered, not where you are sitting.</p>

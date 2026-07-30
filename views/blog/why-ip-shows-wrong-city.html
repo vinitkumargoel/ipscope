@@ -1,0 +1,91 @@
+    <h2>The short answer</h2>
+
+    <p>Your IP location shows the wrong city because IP geolocation never measures where you are — it looks up where your <em>network</em> is registered or routed, and those two things can be a long way apart. Nothing is broken; the database is answering a different question from the one you asked.</p>
+
+    <p>The useful part is working out <em>which</em> of a handful of causes applies to you, because the fix — and whether a fix exists at all — differs in each case.</p>
+
+    <h2>What a geolocation database actually contains</h2>
+
+    <p>An IP geolocation database is a list of address ranges with a guessed location attached to each. The guesses come from regional registry records, the routing announcements networks make to each other, latency measurements, hostname naming conventions, and location data ISPs publish about their own blocks.</p>
+
+    <p>None of those inputs know where your laptop is sitting. They describe a block of addresses, so the location you get back is a property of the block, not of you — and the block can be large. A single entry might cover a wide swathe of addresses across a whole region, all stamped with one city and one coordinate pair. It is also why coordinates often land somewhere with no obvious relationship to anything: many databases fall back to a representative point for a country when they cannot do better.</p>
+
+    <h2>Cause one: your ISP routes you through a hub</h2>
+
+    <p>This is a common reason, and it affects people not using a VPN at all.</p>
+
+    <p>Consumer ISPs do not register a separate block for every town. They aggregate. Traffic from a wide area is handed addresses from a pool associated with a regional core site, a peering point, or the city where the ISP's network operations sit. The database sees the pool, records the city it is registered to, and everyone in it inherits that city. So you live in a smaller town, your ISP's addresses belong to the nearest metro area or to the ISP's own home city, and sites place you there. Being wrong by the width of the country happens too, particularly with ISPs that register everything centrally.</p>
+
+    <h3>How to spot it</h3>
+
+    <p>Check the reverse DNS for your address. ISPs very often encode a location or site code into customer hostnames:</p>
+
+    <pre>203.0.113.45  ->  cpe-203-0-113-45.mkt-a.example-isp.net</pre>
+
+    <p>That <code>mkt-a</code> fragment is a site identifier, usually mapping to an exchange or aggregation point rather than to your street. If the hostname hints at the city the geolocation gave you but not the city you are in, you have your answer: the database is faithfully reading your ISP's infrastructure.</p>
+
+    <h2>Cause two: mobile carriers, which are a category of their own</h2>
+
+    <p>Mobile networks tend to be the least accurate case, and the reason is structural rather than sloppy. A carrier pushes subscriber traffic through a small number of gateway sites before it reaches the public internet. Your handset can be anywhere on the network; the address the internet sees belongs to the gateway. Two people on opposite sides of a country can appear at identical coordinates because they exited through the same one.</p>
+
+    <p>Carriers also lean heavily on Carrier-Grade NAT, which uses the shared range <code>100.64.0.0/10</code> inside their network. Your device holds an address from that range, which is not routable on the public internet and is shared with many other subscribers. The public address you present is the gateway's, so any location attached to it describes carrier equipment. A lookup that puts you in a distant city while you are on mobile data is behaving exactly as designed.</p>
+
+    <h2>Cause three: a VPN, proxy, or corporate network is in the path</h2>
+
+    <p>If you are on a VPN, the location you see is the VPN exit server's location — that is the entire point of the product. Two things still surprise people:</p>
+
+    <ul>
+      <li><strong>The city can be wrong even for the VPN.</strong> Providers advertise a city, but the server may sit in a neighbouring one, or its address block may be registered somewhere else entirely.</li>
+      <li><strong>Corporate networks do this without being called a VPN.</strong> If your traffic leaves through a company gateway, you appear at head office. Remote workers routinely show up in a city they have never visited.</li>
+    </ul>
+
+    <p>A related signal: if the network behind your address belongs to a hosting or cloud provider rather than a consumer ISP, you are almost certainly behind a tunnel or proxy. Large infrastructure networks are recognisable once you know to look — <code>AS15169</code>, for instance, is Google's autonomous system — and a cloud ASN attached to what should be your home connection means it is not your home connection. Our <a href="/blog/is-my-vpn-working">guide to checking whether a VPN is actually working</a> walks through the tests.</p>
+
+    <h2>Cause four: stale and reassigned data</h2>
+
+    <p>Address blocks change hands. They get sold, leased, transferred between registries, re-deployed to a different city, or moved from a business product to a residential one. Registry records and geolocation databases both lag behind reality, and by different amounts, so a block that genuinely served one city can keep that label long after the traffic moved. This cause produces the most baffling results, because there is no clue anywhere in your own setup. It is also the one that quietly fixes itself when the databases catch up.</p>
+
+    <h2>Cause five: you are looking at a private or reserved address</h2>
+
+    <p>Sometimes the wrong city is really "no city at all". If the address you looked up is not publicly routable, there is nothing to geolocate:</p>
+
+    <ul>
+      <li><code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code> — private ranges used inside homes and offices</li>
+      <li><code>100.64.0.0/10</code> — the shared Carrier-Grade NAT range described above</li>
+      <li><code>169.254.0.0/16</code> in IPv4 and <code>fe80::/10</code> in IPv6 — link-local addresses, valid only on a single network segment</li>
+    </ul>
+
+    <p>The same addresses are in use on countless separate networks at once, so no location can be meaningful. If you fed a router's LAN address into a lookup tool, that is what happened. <a href="/blog/public-vs-private-ip">Public versus private addressing</a> covers the distinction properly.</p>
+
+    <h2>A worked example: reading the clues in order</h2>
+
+    <p>Suppose a server log shows this, and the user insists they are nowhere near the recorded city:</p>
+
+    <pre>198.51.100.22 - - [12/Mar/2026:09:41:07 +0000] "GET /account HTTP/1.1" 200</pre>
+
+    <p>The order of checks that resolves it fastest:</p>
+
+    <ol>
+      <li><strong>Is the address globally routable?</strong> If it falls in one of the ranges above, stop — there is no location to find.</li>
+      <li><strong>Which ASN and network own it?</strong> A consumer ISP points to the hub effect, a hosting provider to a tunnel, a mobile carrier to gateway aggregation.</li>
+      <li><strong>What does reverse DNS say?</strong> Hostname fragments often name a site, a region code, or the access technology (<code>dsl</code>, <code>cable</code>, <code>mobile</code>, <code>static</code>).</li>
+      <li><strong>Does the timezone agree?</strong> The cheapest sanity check there is. A gap of several hours between browser timezone and IP timezone is a strong sign the address is not where the person is.</li>
+      <li><strong>Are the coordinates generic?</strong> A country-level fallback point tells you the database had nothing better than "this country".</li>
+    </ol>
+
+    <h2>What to do next</h2>
+
+    <h3>What you can and cannot change</h3>
+
+    <p>You cannot correct the databases from your side. There is no central registry of "where this person really is", and every provider maintains its own dataset. Some accept corrections for address space you can prove you control, which helps a business and does nothing for a home broadband customer. What is actually available to you:</p>
+
+    <ul>
+      <li>Ask your ISP whether your block is registered to the right city. Occasionally it is a genuine record error they can fix.</li>
+      <li>Turn off any VPN, proxy, or corporate tunnel before judging a result, so you are testing your real path.</li>
+      <li>Give sites your location directly when it matters. Browser geolocation, or typing your city into a form, beats an IP guess.</li>
+      <li>Accept the ceiling. City-level is the realistic best case, and it can be well off even when the result looks confident. That includes this site: IPScope reads offline databases and inherits every limit described above.</li>
+    </ul>
+
+    <h3>Checks worth running now</h3>
+
+    <p>Start with the <a href="/tools/timezone-check">timezone check</a>. It compares the timezone your browser reports against the timezone attached to your IP, and the size of the gap is a quick indicator of whether a tunnel, a carrier gateway, or a stale record is behind the wrong city. Then run the <a href="/tools/vpn-check">VPN and proxy check</a> to see whether your network looks like a consumer ISP or hosting infrastructure, and use <a href="/tools/reverse-dns">reverse DNS</a> to read what your provider encoded into the hostname. For the fuller picture, read <a href="/blog/how-accurate-is-ip-geolocation">how accurate IP geolocation really is</a>.</p>

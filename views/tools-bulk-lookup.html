@@ -1,0 +1,85 @@
+    <div class="bulk-form">
+      <p>Enter one IP address per line, or separate them with commas. IPv4 and IPv6 are both accepted, and you can mix them freely. Up to <strong>100</strong> addresses per run.</p>
+      <textarea id="bulk-input" placeholder="8.8.8.8&#10;1.1.1.1&#10;2001:4860:4860::8888" aria-label="IP addresses, one per line"></textarea>
+      <div class="action-bar" style="margin-top:1rem">
+        <button type="button" class="action-btn primary" id="bulk-submit">Look up all</button>
+        <button type="button" class="action-btn" id="bulk-sample">Load sample</button>
+        <button type="button" class="action-btn" id="bulk-clear">Clear</button>
+        <span id="bulk-counter" class="post-meta"></span>
+      </div>
+    </div>
+
+    <div id="bulk-error" class="error-banner" style="margin-top:1rem"></div>
+
+    <div class="bulk-results" id="bulk-results" style="display:none">
+      <div class="bulk-results-toolbar">
+        <span id="bulk-count"></span>
+        <div class="action-bar" style="margin:0">
+          <button type="button" class="action-btn" id="bulk-export-csv">Export CSV</button>
+          <button type="button" class="action-btn" id="bulk-export-json">Export JSON</button>
+        </div>
+      </div>
+      <div class="bulk-row header">
+        <span>IP</span><span>Location</span><span>ISP / ASN</span>
+      </div>
+      <div id="bulk-rows"></div>
+    </div>
+
+    <h2>What bulk IP lookup is for</h2>
+    <p>Looking up one address at a time is fine until you have a log file. Bulk lookup takes a list and returns the same geolocation record for every entry in one pass, so you can work with the result as a table instead of a browser tab per address.</p>
+    <p>The typical inputs are access logs, firewall or fail2ban blocklists, mail server rejection lists, CDN reports, and analytics exports. The typical question is one of: where is this traffic coming from, which networks does it belong to, and is any of it coming from hosting infrastructure rather than real users.</p>
+
+    <h3>What you get for each address</h3>
+    <ul>
+      <li><strong>Location</strong> — country, region and city where available, at city-level accuracy at best.</li>
+      <li><strong>Network</strong> — the ISP or organisation name and the ASN that announces the address.</li>
+      <li><strong>Timezone</strong> — the IANA zone for the resolved location.</li>
+      <li><strong>Classification</strong> — whether the address looks residential, mobile, or datacentre, and whether it appears to be a VPN, proxy or Tor exit.</li>
+    </ul>
+    <p>Every row links through to the full report for that address, which adds reverse DNS, the registry record, the announced range, and the abuse contact.</p>
+
+    <h2>Limits and how to work within them</h2>
+    <p>A single run accepts up to 100 addresses, and the endpoint is rate limited to 30 requests per minute per client. Those limits exist because each lookup does real work on this server, and because the service is free and unauthenticated.</p>
+    <p>If you have more than 100 addresses, the sensible approach is to deduplicate first. Log files are extremely repetitive — a few thousand log lines usually contain only a few dozen distinct addresses. On a Unix-like system:</p>
+    <pre><code>awk '{print $1}' access.log | sort -u &gt; ips.txt
+wc -l ips.txt</code></pre>
+    <p>For anything genuinely larger, use the <a href="/api-docs">JSON API</a> directly and batch it yourself. The <code>POST /api/bulk</code> endpoint takes the same 100-address maximum per call, so a script that chunks a list into hundreds and paces itself against the rate limit will get through an arbitrarily large file without any special access.</p>
+
+    <h2>Exporting the results</h2>
+    <p>Results export as CSV or JSON. The CSV carries one row per address with the columns <code>ip</code>, <code>city</code>, <code>region</code>, <code>country</code>, <code>countryCode</code>, <code>isp</code>, <code>asn</code>, <code>timezone</code>, <code>riskLabel</code> and <code>error</code>, quoted where a value contains a comma or a newline. That opens cleanly in a spreadsheet and imports cleanly into a database.</p>
+    <p>Addresses that fail validation or cannot be resolved still appear in the output with the reason in the <code>error</code> column, so a partial failure never silently shortens your result set. Check the row count against your input count if that matters to you.</p>
+
+    <h2>Reading the results honestly</h2>
+    <p>Two cautions worth taking seriously before you act on a table of geolocation data.</p>
+    <p>First, <strong>city-level results are approximate</strong>. They reflect where a provider registered or routes an address, not where a person is sitting, and mobile carriers in particular route large subscriber populations through a small number of gateways. Country is usually reliable; city frequently is not. There is more detail in <a href="/blog/how-accurate-is-ip-geolocation">how accurate is IP geolocation</a>.</p>
+    <p>Second, <strong>the VPN and datacentre classification is heuristic</strong>. It is inferred from the ASN, the organisation name and reverse DNS patterns, not from a commercial threat feed. It will flag residential ISPs that also sell hosting, and it will miss VPN operators running on residential address space. Use it as a prompt to look closer, not as a verdict. The <a href="/tools/vpn-check">VPN and proxy check</a> shows the reasoning for a single address.</p>
+
+    <h2>Frequently asked questions</h2>
+
+    <details class="faq-item" open>
+      <summary>Is there a limit on how many IPs I can look up?</summary>
+      <div class="faq-body"><p>100 addresses per run through this page, and 30 requests per minute per client against the API. Deduplicate your list first — it usually cuts the volume dramatically — or chunk it against the API for larger jobs.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can I upload a CSV or log file?</summary>
+      <div class="faq-body"><p>Not directly. Extract the address column first and paste the values in, one per line or comma separated. On Unix-like systems <code>awk '{print $1}' access.log | sort -u</code> handles most log formats.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Do I need an API key?</summary>
+      <div class="faq-body"><p>No. There is no key, no signup and no quota beyond the published rate limit. See the <a href="/api-docs">API documentation</a> for the endpoint details.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Are my uploaded addresses stored or logged?</summary>
+      <div class="faq-body"><p>Bulk requests are served and discarded. Request logging records the endpoint, status and timing rather than the address list. The <a href="/privacy">Privacy Policy</a> sets out what is retained.</p></div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Why does an address show no city?</summary>
+      <div class="faq-body"><p>Either the offline database has no city record for that range, or the address is private, reserved, or bogon space that cannot be geolocated at all. Private ranges such as <code>10.0.0.0/8</code> and <code>192.168.0.0/16</code> never resolve to a public location.</p></div>
+    </details>
+
+    <h2>What to do next</h2>
+    <p>To dig into a single address from your results, open its <a href="/">full lookup report</a>. To check whether a browser timezone lines up with an address, use the <a href="/tools/timezone-check">timezone check</a>. To find who to contact about abusive traffic, use the <a href="/tools/abuse-contact">abuse contact lookup</a>. To automate any of it, read the <a href="/api-docs">API documentation</a>.</p>

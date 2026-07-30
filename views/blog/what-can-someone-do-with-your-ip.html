@@ -1,0 +1,58 @@
+    <h2>The short answer</h2>
+    <p>Someone who knows your IP address can work out roughly where you are — usually your city or region, sometimes only your country — and which company provides your connection. That is most of it. From the address alone they cannot get your name, your street address, your browsing history or access to your devices, and the risks that do remain are narrower and more boring than the warnings suggest.</p>
+    <p>The gap between what an IP address reveals and what people believe it reveals runs both ways: some fears are close to fantasy, while a few real problems get almost no attention.</p>
+
+    <h2>What an IP address actually is</h2>
+    <p>An IP address identifies a network interface so packets can find their way back to it. IPv4 addresses are 32-bit numbers written as four decimal octets, such as <code>203.0.113.45</code>; IPv6 addresses are 128-bit, written in hexadecimal groups, such as <code>2001:db8::1</code>. Neither carries information about a person. Any link to a person is made afterwards, by whoever holds a record tying an address to a subscriber at a given moment — your ISP, who generally does not hand it to strangers.</p>
+
+    <h3>The address other people see is not the address on your device</h3>
+    <p>Home and office networks use private address space internally, from three reserved ranges: <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code>. Your laptop might be <code>192.168.1.24</code>, a number meaningless outside your own network and in use on countless other networks. Your router translates traffic so the internet only ever sees one address for your whole household.</p>
+    <p>Increasingly, not even that public address is uniquely yours. Mobile carriers and many fixed-line providers use carrier-grade NAT, sharing one address across many subscribers with the internal side numbered out of <code>100.64.0.0/10</code>. Behind CGNAT, an observer sees a gateway that may represent many separate customers. Link-local space — <code>169.254.0.0/16</code> for IPv4, <code>fe80::/10</code> for IPv6 — never leaves the local segment at all. For more, see <a href="/blog/public-vs-private-ip">public vs private IP addresses</a>.</p>
+
+    <h2>What can genuinely be learned</h2>
+    <p>Given a public IP address and nothing else, a reasonably informed person can find:</p>
+    <ul>
+      <li>An approximate location, city level at best and often wrong, from databases recording where an ISP said a block is used.</li>
+      <li>The network operator, from registry data: the ISP or hosting company, the autonomous system number announcing the range, and the size of the allocated block.</li>
+      <li>Abuse and technical contact addresses published by that operator for reporting problems.</li>
+      <li>A reverse-DNS hostname, where one exists, which sometimes hints at the access technology or the exchange the line terminates on.</li>
+      <li>Whether the address belongs to consumer broadband, a mobile carrier, a datacentre, a university or a known Tor exit relay.</li>
+    </ul>
+    <p>In practice, a web server records a request:</p>
+    <pre><code>203.0.113.45 - - [12/Mar/2026:09:14:22 +0000] "GET /login HTTP/1.1" 200 4213</code></pre>
+    <p>Someone reviewing that line can query <code>45.113.0.203.in-addr.arpa</code> for a <a href="/tools/reverse-dns">PTR record</a> and get back something like <code>host-203-113-0-45.broadband.example-isp.net</code>, then look up the registry entry for the operator and its abuse mailbox. Had the address sat inside <a href="/blog/what-is-an-asn">AS15169</a>, which Google announces, they would read it as cloud infrastructure rather than a person on a sofa. That is the full extent: a network, an operator, a rough place, a contact address for complaints.</p>
+
+    <h2>What cannot be learned</h2>
+    <p>Your name is not in there, nor your street address, phone number or email. Subscriber identity sits with the ISP, and in most jurisdictions it takes a court order or a formal law-enforcement request to prise it loose. A stranger with a grudge does not have that lever.</p>
+    <p>Your activity is not in there either: an address does not carry what you visited, when, or for how long. Parties positioned to watch your traffic — your ISP, a network you have joined, operators whose equipment your packets cross — see some of that because of where they sit, not because they know your address.</p>
+    <p>And the location is vaguer than most people assume. IPScope's own lookups are approximate and city-level at best; they can be a long way out, and on mobile or CGNAT connections they may point at a carrier hub in another region entirely. That is a limit of the underlying data, not of one tool. <a href="/blog/how-accurate-is-ip-geolocation">How accurate is IP geolocation, really?</a> explains why, and <a href="/blog/why-ip-shows-wrong-city">why your IP location shows the wrong city</a> covers the failure modes.</p>
+
+    <h2>The risks that are real</h2>
+
+    <h3>Connection flooding</h3>
+    <p>This is the one that actually happens to ordinary people. Someone who knows your home connection's public IP can send enough junk traffic at it to saturate the line, knocking you offline for as long as they keep going. It needs no skill and no access to anything of yours. It is common in online gaming, where addresses leak through voice chat and peer-to-peer matchmaking. It is a nuisance rather than a breach: nothing is stolen, and rebooting a router that gets a dynamic address often ends it.</p>
+
+    <h3>Reaching services you did not mean to expose</h3>
+    <p>An address is also a target for scanning. Anything forwarded through your router — a NAS admin panel, a camera, a media server, an old port-forwarding rule from years ago — can be found and probed. The vulnerability is the exposed service and its password; the address is only what makes it findable. Automated scanners sweep routable address space constantly, so anything left open tends to be found sooner than people expect.</p>
+
+    <h3>Correlation over time</h3>
+    <p>The quiet risk is linkage. When the same address appears across accounts, forums and support tickets, it becomes a thread tying identities together — not by unmasking an address, but by noticing that two accounts share one. It matters more on a static business line than on mobile. IPv6 shifts this: devices hold their own globally routable address, and although most operating systems rotate temporary addresses for outbound traffic, the network prefix stays stable. See <a href="/blog/ipv4-vs-ipv6">IPv4 vs IPv6</a> and <a href="/blog/why-does-my-ip-change">why does my IP address keep changing</a>.</p>
+
+    <h3>Plausible-sounding social engineering</h3>
+    <p>Knowing your city and ISP is enough to make a scam message sound informed. "We can see you are connecting from Leeds through your provider" reads as inside knowledge to anyone unaware it came from a free lookup. The risk is not the data; it is the credibility the data lends to a lie.</p>
+
+    <h2>Fears that are overstated</h2>
+    <ul>
+      <li><strong>"Someone can hack you through your IP."</strong> An address is a destination, not a door. Compromise needs a service that is both reachable and vulnerable, and a router with no forwarded ports and current firmware offers little to attack.</li>
+      <li><strong>"They can find your house."</strong> Geolocation resolves to a city or an ISP facility, frequently the wrong one. The coordinates returned are often a region's centroid rather than a place anyone lives.</li>
+      <li><strong>"They can read your messages."</strong> Not from an address. Traffic to a site using HTTPS is encrypted in transit; an observer who knows your address learns nothing about the contents.</li>
+      <li><strong>"Your IP identifies you personally."</strong> On CGNAT it does not even identify your household. Even on a dedicated address it identifies a subscriber line, which may be shared by a family, an office or a caf&eacute;.</li>
+      <li><strong>"Hiding your IP makes you anonymous."</strong> It moves the observation point. A VPN provider sees what your ISP would have seen, and fingerprinting, logins and cookies identify you regardless.</li>
+    </ul>
+
+    <h2>Proportionate precautions</h2>
+    <p>Given the real risk profile, a short list does most of the work. Do not forward ports you no longer use, and check what your router exposes rather than assuming. Keep its firmware current, since consumer routers are a standing target. Avoid peer-to-peer voice chat with strangers if flooding worries you. Treat unsolicited messages quoting your city or ISP as a red flag rather than a credential. And if you use a VPN, verify it: <a href="/blog/how-to-check-ip-leak">how to check if your IP is leaking</a> covers the usual failures, including a timezone mismatch and DNS escaping the tunnel.</p>
+
+    <h2>What to do next</h2>
+    <p>Start by seeing what your own address discloses. The <a href="/">IPScope homepage</a> shows the location, ISP, ASN, network range and risk classification any site you visit could derive from your connection — usually less dramatic than expected. The <a href="/tools/vpn-check">VPN and proxy check</a> shows how others are likely to classify your address, and the <a href="/tools/timezone-check">timezone check</a> compares your browser's clock against your exit IP.</p>
+    <p>On the receiving end of unwanted traffic instead, the <a href="/tools/abuse-contact">abuse contact lookup</a> finds the registry-published mailbox for whoever operates the offending range. Broader questions are answered in the <a href="/faq">FAQ</a>.</p>
